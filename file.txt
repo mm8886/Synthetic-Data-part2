@@ -1,0 +1,219 @@
+# Singapore Loan Dataset - Feature Documentation
+
+## Random Features
+
+**Customer_id**: Randomly generated IDs starting with 8 or 9, no 3 consecutive repeating digits, format: SCB + 9 digits
+
+**Loan_Account_id**: Random 8-digit numbers between 10,000,000 and 99,999,999
+
+**Name**: Random Singaporean names based on ethnic distribution (74% Chinese, 13% Malay, 9% Indian, 4% Western)
+
+**Gender**: Random choice (Male: 48%, Female: 48%, Others: 4%)
+
+**Primary_Phone_Number**: Random Singapore mobile numbers in +65 format with 92% valid numbers
+
+**Secondary_Mobile_Number**: Random numbers with 75% validity, 15% of customers have no secondary number (set to "NULL")
+
+**Landline_Phone_Number**: Random numbers in +65 6XXXXXXX format
+
+**Email_ID**: Generated from firstname.lastname@random-domain from predefined domain list
+
+**Address**: Random street addresses with unit numbers and postal codes
+
+**City**: Random choice from 20 Singapore cities including Singapore City, Jurong East, Tampines, etc.
+
+**Language_Preference**: Random choice (English: 70%, Regional: 30%)
+
+**Product_Type**: Random choice from: Personal loan, Auto loan, Credit card, Education loan, Business loan
+
+**Loan_Amount_SGD**: Random within product-specific limits: Personal (5K-100K), Auto (5K-200K), Credit Card (5K-50K), Education (5K-100K), Business (5K-500K)
+
+**Tenure**: Random choice from: 12, 24, 36, 48, 60 months
+
+**Interest_Rate**: Product-specific fixed rates: Personal 8.5%, Auto 9.0%, Credit Card 10.0%, Education 8.0%, Business 9.5%
+
+**Income_Band_SGD**: Random choice from income bands with probabilities: 50K or Below (20%), 50K-100K (35%), 100K-200K (25%), 200K-300K (12%), 300K-500K (5%), 500K+ (3%)
+
+**Employeement_Type**: Random choice: Full time, Part time, Contract, Freelance, Unemployed
+
+**Occupation**: Random based on age distribution: Student, Employed, Self-Employed, Homemaker, Unemployed, Retired
+
+**Age**: Generated from age-occupation distribution with four groups: Young Adult (18-29), Adult (30-44), Middle Aged (45-59), Senior (60-75)
+
+**Partial_Payment_Indicator**: Random boolean with 15% true probability
+
+**Delinquency_on_other_Loans**: Random boolean with 15% true probability
+
+**App_Login_Frequency**: Random Poisson distribution with mean 12
+
+**Online_Banking_Activity**: Random Poisson distribution with mean 10
+
+**Call_SMS_Activity_Patterns**: Random choice: Low, Medium, High with equal probability
+
+**WhatsApp_OTT_usage_Indicator**: Random boolean with 80% true probability
+
+**Do_Not_Call_Registry_Data**: Random boolean with 15% true probability
+
+**Regional_Time_Restrictions**: Random choice: Morning, Afternoon, Evening, Night
+
+**Communication_Complaince_Limits**: Random choice: Daytime, Evening, Weekdays, Weekends, Holidays
+
+**Recent_Inquiries**: Random Poisson distribution with mean 2
+
+**Loan_Exposure_Across_Banks**: Random Poisson distribution with mean 1
+
+**Unemployeement_rate_region**: Random uniform between 1.8% and 2.2%
+
+**Inflation_Rate**: Random uniform between 3.5% and 5.0%
+
+**Interest_Rate_Trend**: Random uniform between -0.1% and 0.3%
+
+**Economic_Stress_Index**: Random uniform between 0.1 and 0.3
+
+## Derived Features
+
+**Monthly_Income_SGD**: Derived from income band using realistic distribution within bands, with lower bands skewed toward lower end and higher bands skewed toward higher end using beta distribution
+
+**Outstanding_Balance_SGD**: Calculated using amortization formula considering loan amount, interest rate, tenure, months paid, and missed payments with penalty interest
+
+**Current_EMI_SGD**: Base EMI calculated using standard EMI formula then adjusted for delinquency: 0-15 days (+2%), 16-30 days (+5%), 31-60 days (+8%), 61-90 days (+12%), 90+ days (+15%)
+
+**Installment_Due_Date**: Calculated from loan start date plus (months completed × 30 days)
+
+**Last_Payment_Date**: Derived from loan start date plus (months completed - 1) × 30 days + random days, set to "NULL" if no payments made
+
+**Number_of_Past_Payments**: Based on tenure and payment behavior - good payers have more completed months, poor payers have fewer
+
+**Payment_Frequency**: Derived from on-time percentage: "Regular" if ≥80%, "Irregular" otherwise
+
+**Amount_Paid_Each_Month_SGD**: Equal to base EMI before delinquency adjustments
+
+**Missed_Payments_Count**: Calculated from months completed and on-time percentage with age and occupation adjustments, only ~17,000 customers have 0 missed payments
+
+**Settlement_History**: Derived from missed payments, successful contacts, contact success rate, payment history, and financial stress score: Settled, Under Negotiation, Partial Settlement, Not Settled
+
+**Repayment_Irregularity_Flags**: Boolean flag set to true if on-time percentage < 70%
+
+**Communication_Data_Completion**: Derived from occupation and age: Employed/Self-Employed (90%), Student (85%), others (75%), reduced by 10% for age > 60
+
+**Valid_Phone_Number**: Boolean indicating if primary number is valid (92% valid)
+
+**No_of_Valid_Numbers**: Count of valid phone numbers (0, 1, or 2) derived from primary and secondary number validity
+
+**No_of_Invalid_Numbers**: Count of invalid phone numbers (0, 1, or 2) derived from primary and secondary number validity
+
+**Mobile_Number_Change_Count**: Poisson distribution based on occupation and age: Students/Young (λ=2.5), Unemployed (λ=1.5), others (λ=0.8)
+
+**Mobile_Number_Change_Count_This_Year**: Minimum of mobile change count and random (0-2)
+
+**Address_Change_Count**: Poisson distribution based on occupation and age: Students/Young Employed (λ=1.2), Unemployed (λ=0.8), others (λ=0.3)
+
+**Address_Change_Count_This_Year**: Minimum of address change count and random (0-1)
+
+**Contact_Data_Change_Frequency**: Total changes (mobile + address) divided by customer age years (max(5, age-18))
+
+**Finance_Stress_Status**: Categorized from financial stress score: ≤25 (Low stress), ≤50 (Medium stress), ≤75 (High stress), >75 (Extreme High stress)
+
+**Utility_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+
+**Shopping_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+
+**Entertainment_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+
+**Health_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+
+**Education_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+
+**Travel_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+
+**Monthly_Spend_Trend_SGD**: Normal distribution around total monthly spend with 12% standard deviation
+
+**Seasonal_Spend_Variation**: Random uniform between 8% and 35%
+
+**Weekend_Spend_Ratio**: Random uniform between 22% and 48%
+
+**Festive_Season_Spend_SGD**: Total monthly spend × random factor between 1.15 and 2.0
+
+**Total_Monthly_Spend_SGD**: Sum of all category spends, derived from monthly income × spend ratio
+
+**Spend_to_Income_Ratio**: Total monthly spend divided by monthly income
+
+**UPI_Transaction_Count**: Base intensity (total_spend/80) × 0.4 × age factor × occupation factor with normal variation
+
+**Debit_Card_Transaction_Count**: Base intensity (total_spend/80) × 0.3 with normal variation
+
+**Credit_Card_Transaction_Count**: Base intensity (total_spend/80) × 0.2 × age factor × occupation factor with normal variation
+
+**Cash_Withdrawal_Count**: Base intensity (total_spend/80) × 0.1 × age factor × occupation factor with normal variation
+
+**Recurring_Transaction_Count**: 6-12 for employed/self-employed/age>35, 3-8 for others
+
+**Preferred_Payment_Channel**: Channel with highest transaction count from UPI, Debit Card, Credit Card, Cash
+
+**Recurring_Payment_Ratio**: Recurring count divided by total transactions
+
+**Savings_to_Spend_Ratio**: Realistic ranges based on employment and age: Unemployed (-15% to 5%), Student (-8% to 10%), Age>50 (15% to 35%), Age<30 (5% to 20%), others (8% to 25%)
+
+**Spend_Growth_Rate_YoY**: Normal distribution: Unemployed (mean -5%, std 12%), others (mean 4%, std 12%)
+
+**High_Value_Transaction_Count**: Poisson distribution based on total spend divided by high value threshold (7% of monthly income)
+
+**Flight_Risk_Score**: Calculated as: (financial_stress_score/100 × 0.4) + ((1 - payment_history) × 0.3) + (min(1, missed_payments × 0.1) × 0.2) + ((1 - min(1, payment_history)) × 0.1) with age adjustments
+
+**Financial_Health_Status**: Derived from financial stress score: ≤25 (Healthy), ≤50 (Moderate), ≤75 (Stressed), >75 (Critical)
+
+**Financial_Stress_Score**: Weighted sum: spend_income_ratio (30%), savings_ratio (25%), payment_history (20%), missed_payments (15%), debt_to_income (10%) with employment and age adjustments
+
+**Avg_Balance_Trends**: Based on savings_ratio: >15% (Rising), <-8% (Falling), else (Stable)
+
+**Overdraft_or_Low_Balance_Flag**: Boolean: savings_ratio < -12% OR spend_income_ratio > 1.25
+
+**AAR_Score**: Calculated as: (transaction_diversity × 0.4 + recurring_ratio × 0.3 + digital_adoption × 0.3) × age_factor × occupation_factor, then forced to distribution: 88% Low (0.3-0.5), 10% Medium (0.5-0.65), 2% High (0.65-0.75)
+
+**AAR_Risk_Level**: Categorized from AAR score: ≤0.5 (Low), ≤0.65 (Medium), >0.65 (High)
+
+**Successful_Contacts_Count**: Guaranteed ≥1, calculated as call_attempts × success_rate with adjustments for age, occupation, payment history, and financial stress
+
+**Contact_Success_Rate**: Successful contacts divided by call attempts, adjusted for customer profile
+
+**Last_Successful_Agent_ID**: Top agent from successful contacts, never empty
+
+**Best_Contact_Agent_IDs**: Top 3 agents by interaction count from successful contacts
+
+**Avg_Time_With_Best_Agents_Min**: Base duration (3-10 minutes) adjusted for financial stress score
+
+**Customer_Best_Agent_Interaction_Count**: Highest interaction count with any single agent
+
+**Credit_Score**: Base 650 + (payment_history - 0.5) × 200 - min(missed_payments × 15, 100) - (50 if delinquency else 0) - (20 if partial_payments else 0), clamped 300-850
+
+**Smartphone_Penetration**: Derived from age, occupation, monthly income, and city: High for age<40/employed/urban, Medium for middle, Low for age>60/unemployed/rural
+
+**Preferred_Channel**: Derived from age, smartphone penetration, and digital transaction ratio: WhatsApp for young/high digital, SMS for medium, Call for older/low digital
+
+**Contact_History_Call_Attempts**: Successful contacts × random factor (1.2-2.0)
+
+**Contact_History_SMS**: Successful contacts × random factor (0.8-1.5)
+
+**Contact_History_WhatsApp**: Successful contacts × random factor (0.5-1.2)
+
+**Contact_History_EmailLogs**: Successful contacts × random factor (0.3-0.8)
+
+**No_of_Attempts**: Sum of all contact history methods
+
+**Average_Handling_Time**: Random uniform 3-15 minutes if successful contacts > 0, else 0
+
+**Channel_used**: Based on successful contacts, preferred channel, and age with some variation
+
+**Response_Outcome**: Derived from successful contacts, contact success rate, payment history, and financial stress: Connected, Promised to pay, Partial paid, Ignored, Disconnected
+
+**Recent_Score_Change**: Random integer between -40 and +41
+
+**Mobile_Number_Active_Status**: Same as Valid_Phone_Number
+
+**Email_Activity**: Random boolean with 80% true probability
+
+**Customer_Employment_Status**: Derived from occupation: "Employed" if occupation is Employed or Self-Employed, else "Unemployed"
+
+**Day_Past_Due**: Calculated based on payment behavior: good payers (0-15 days), average payers (0-30 days), poor payers (15-90 days)
+
+**Total_Transactions**: Sum of UPI, debit, credit, and cash transaction counts

@@ -1,219 +1,4323 @@
-# Singapore Loan Dataset - Feature Documentation
+needs few modifications for the above content
 
-## Random Features
+for the derived features explain how they are estimated or calculated from the below code
 
-**Customer_id**: Randomly generated IDs starting with 8 or 9, no 3 consecutive repeating digits, format: SCB + 9 digits
 
-**Loan_Account_id**: Random 8-digit numbers between 10,000,000 and 99,999,999
 
-**Name**: Random Singaporean names based on ethnic distribution (74% Chinese, 13% Malay, 9% Indian, 4% Western)
+import pandas as pd
 
-**Gender**: Random choice (Male: 48%, Female: 48%, Others: 4%)
+import numpy as np
 
-**Primary_Phone_Number**: Random Singapore mobile numbers in +65 format with 92% valid numbers
+from datetime import datetime, timedelta
 
-**Secondary_Mobile_Number**: Random numbers with 75% validity, 15% of customers have no secondary number (set to "NULL")
+import random
 
-**Landline_Phone_Number**: Random numbers in +65 6XXXXXXX format
+from collections import defaultdict
 
-**Email_ID**: Generated from firstname.lastname@random-domain from predefined domain list
+import gc
 
-**Address**: Random street addresses with unit numbers and postal codes
 
-**City**: Random choice from 20 Singapore cities including Singapore City, Jurong East, Tampines, etc.
 
-**Language_Preference**: Random choice (English: 70%, Regional: 30%)
+# Configuration
 
-**Product_Type**: Random choice from: Personal loan, Auto loan, Credit card, Education loan, Business loan
+num_records = 100000
 
-**Loan_Amount_SGD**: Random within product-specific limits: Personal (5K-100K), Auto (5K-200K), Credit Card (5K-50K), Education (5K-100K), Business (5K-500K)
+batch_size = 20000
 
-**Tenure**: Random choice from: 12, 24, 36, 48, 60 months
 
-**Interest_Rate**: Product-specific fixed rates: Personal 8.5%, Auto 9.0%, Credit Card 10.0%, Education 8.0%, Business 9.5%
 
-**Income_Band_SGD**: Random choice from income bands with probabilities: 50K or Below (20%), 50K-100K (35%), 100K-200K (25%), 200K-300K (12%), 300K-500K (5%), 500K+ (3%)
+# Singapore-specific data
 
-**Employeement_Type**: Random choice: Full time, Part time, Contract, Freelance, Unemployed
+singapore_districts = {
 
-**Occupation**: Random based on age distribution: Student, Employed, Self-Employed, Homemaker, Unemployed, Retired
+    "01": ["Raffles Place", "Marina", "People's Park"],
 
-**Age**: Generated from age-occupation distribution with four groups: Young Adult (18-29), Adult (30-44), Middle Aged (45-59), Senior (60-75)
+    "02": ["Anson", "Tanjong Pagar"],
 
-**Partial_Payment_Indicator**: Random boolean with 15% true probability
+    "03": ["Queenstown", "Tiong Bahru"],
 
-**Delinquency_on_other_Loans**: Random boolean with 15% true probability
+    "04": ["Telok Blangah", "HarbourFront"],
 
-**App_Login_Frequency**: Random Poisson distribution with mean 12
+    "05": ["Pasir Panjang", "Hong Leong Garden", "Clementi New Town"],
 
-**Online_Banking_Activity**: Random Poisson distribution with mean 10
+    "06": ["High Street", "Beach Road"],
 
-**Call_SMS_Activity_Patterns**: Random choice: Low, Medium, High with equal probability
+    "07": ["Middle Road", "Golden Mile"],
 
-**WhatsApp_OTT_usage_Indicator**: Random boolean with 80% true probability
+    "08": ["Little India", "Farrer Park"],
 
-**Do_Not_Call_Registry_Data**: Random boolean with 15% true probability
+    "09": ["Orchard", "Cairnhill", "River Valley"],
 
-**Regional_Time_Restrictions**: Random choice: Morning, Afternoon, Evening, Night
+    "10": ["Ardmore", "Bukit Timah", "Holland Road"],
 
-**Communication_Complaince_Limits**: Random choice: Daytime, Evening, Weekdays, Weekends, Holidays
+    "11": ["Watten Estate", "Novena", "Thomson"],
 
-**Recent_Inquiries**: Random Poisson distribution with mean 2
+    "12": ["Balestier", "Toa Payoh", "Serangoon"],
 
-**Loan_Exposure_Across_Banks**: Random Poisson distribution with mean 1
+    "13": ["Macpherson", "Braddell"],
 
-**Unemployeement_rate_region**: Random uniform between 1.8% and 2.2%
+    "14": ["Geylang", "Eunos"],
 
-**Inflation_Rate**: Random uniform between 3.5% and 5.0%
+    "15": ["Katong", "Joo Chiat", "Amber Road"],
 
-**Interest_Rate_Trend**: Random uniform between -0.1% and 0.3%
+    "16": ["Bedok", "Upper East Coast", "Eastwood", "Kew Drive"],
 
-**Economic_Stress_Index**: Random uniform between 0.1 and 0.3
+    "17": ["Loyang", "Changi"],
 
-## Derived Features
+    "18": ["Tampines", "Pasir Ris"],
 
-**Monthly_Income_SGD**: Derived from income band using realistic distribution within bands, with lower bands skewed toward lower end and higher bands skewed toward higher end using beta distribution
+    "19": ["Serangoon Garden", "Hougang", "Punggol"],
 
-**Outstanding_Balance_SGD**: Calculated using amortization formula considering loan amount, interest rate, tenure, months paid, and missed payments with penalty interest
+    "20": ["Bishan", "Ang Mo Kio"],
 
-**Current_EMI_SGD**: Base EMI calculated using standard EMI formula then adjusted for delinquency: 0-15 days (+2%), 16-30 days (+5%), 31-60 days (+8%), 61-90 days (+12%), 90+ days (+15%)
+    "21": ["Upper Bukit Timah", "Clementi Park", "Ulu Pandan"],
 
-**Installment_Due_Date**: Calculated from loan start date plus (months completed × 30 days)
+    "22": ["Jurong"],
 
-**Last_Payment_Date**: Derived from loan start date plus (months completed - 1) × 30 days + random days, set to "NULL" if no payments made
+    "23": ["Hillview", "Dairy Farm", "Bukit Panjang", "Choa Chu Kang"],
 
-**Number_of_Past_Payments**: Based on tenure and payment behavior - good payers have more completed months, poor payers have fewer
+    "24": ["Lim Chu Kang", "Tengah"],
 
-**Payment_Frequency**: Derived from on-time percentage: "Regular" if ≥80%, "Irregular" otherwise
+    "25": ["Kranji", "Woodgrove"],
 
-**Amount_Paid_Each_Month_SGD**: Equal to base EMI before delinquency adjustments
+    "26": ["Upper Thomson", "Springleaf"],
 
-**Missed_Payments_Count**: Calculated from months completed and on-time percentage with age and occupation adjustments, only ~17,000 customers have 0 missed payments
+    "27": ["Yishun", "Sembawang"],
 
-**Settlement_History**: Derived from missed payments, successful contacts, contact success rate, payment history, and financial stress score: Settled, Under Negotiation, Partial Settlement, Not Settled
+    "28": ["Seletar"]
 
-**Repayment_Irregularity_Flags**: Boolean flag set to true if on-time percentage < 70%
+}
 
-**Communication_Data_Completion**: Derived from occupation and age: Employed/Self-Employed (90%), Student (85%), others (75%), reduced by 10% for age > 60
 
-**Valid_Phone_Number**: Boolean indicating if primary number is valid (92% valid)
 
-**No_of_Valid_Numbers**: Count of valid phone numbers (0, 1, or 2) derived from primary and secondary number validity
+# Enhanced street names with realistic Singapore streets
 
-**No_of_Invalid_Numbers**: Count of invalid phone numbers (0, 1, or 2) derived from primary and secondary number validity
+street_names = np.array([
 
-**Mobile_Number_Change_Count**: Poisson distribution based on occupation and age: Students/Young (λ=2.5), Unemployed (λ=1.5), others (λ=0.8)
+    "Orchard Road", "North Bridge Road", "South Bridge Road", "Victoria Street",
 
-**Mobile_Number_Change_Count_This_Year**: Minimum of mobile change count and random (0-2)
+    "Beach Road", "Serangoon Road", "Havelock Road", "Outram Road",
 
-**Address_Change_Count**: Poisson distribution based on occupation and age: Students/Young Employed (λ=1.2), Unemployed (λ=0.8), others (λ=0.3)
+    "Cecil Street", "Robinson Road", "Maxwell Road", "Telok Ayer Street",
 
-**Address_Change_Count_This_Year**: Minimum of address change count and random (0-1)
+    "Bras Basah Road", "Bugis Street", "Chinatown Street", "Clarke Quay",
 
-**Contact_Data_Change_Frequency**: Total changes (mobile + address) divided by customer age years (max(5, age-18))
+    "Marina Boulevard", "Raffles Boulevard", "Temasek Avenue", "Suntec City Drive",
 
-**Finance_Stress_Status**: Categorized from financial stress score: ≤25 (Low stress), ≤50 (Medium stress), ≤75 (High stress), >75 (Extreme High stress)
+    "HarbourFront Walk", "Sentosa Gateway", "Serangoon Garden Way", "Marine Parade Road",
 
-**Utility_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+    "Bukit Timah Road", "Holland Road", "Tanglin Road", "River Valley Road",
 
-**Shopping_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+    "East Coast Road", "Upper East Coast Road", "Loyang Way", "Tampines Avenue",
 
-**Entertainment_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+    "Bedok North Road", "Bedok South Road", "Jurong East Street", "Jurong West Avenue",
 
-**Health_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+    "Woodlands Avenue", "Yishun Avenue", "Ang Mo Kio Avenue", "Toa Payoh Rise",
 
-**Education_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+    "Bishan Street", "Clementi Avenue", "Queenstown Road", "Pasir Ris Drive"
 
-**Travel_Spend_SGD**: Derived from total monthly spend × base ratio (varies by age/occupation) × random variation (0.85-1.15)
+])
 
-**Monthly_Spend_Trend_SGD**: Normal distribution around total monthly spend with 12% standard deviation
 
-**Seasonal_Spend_Variation**: Random uniform between 8% and 35%
 
-**Weekend_Spend_Ratio**: Random uniform between 22% and 48%
+# Singapore areas for address generation
 
-**Festive_Season_Spend_SGD**: Total monthly spend × random factor between 1.15 and 2.0
+singapore_areas = np.array([
 
-**Total_Monthly_Spend_SGD**: Sum of all category spends, derived from monthly income × spend ratio
+    "Raffles Place", "Marina Bay", "Suntec City", "Harbourfront",
 
-**Spend_to_Income_Ratio**: Total monthly spend divided by monthly income
+    "Serangoon Garden", "Marine Parade", "Bukit Timah", "Orchard",
 
-**UPI_Transaction_Count**: Base intensity (total_spend/80) × 0.4 × age factor × occupation factor with normal variation
+    "Tanjong Pagar", "Chinatown", "Little India", "Kampong Glam",
 
-**Debit_Card_Transaction_Count**: Base intensity (total_spend/80) × 0.3 with normal variation
+    "Bugis", "Dhoby Ghaut", "Somerset", "City Hall",
 
-**Credit_Card_Transaction_Count**: Base intensity (total_spend/80) × 0.2 × age factor × occupation factor with normal variation
+    "Lavender", "Kallang", "Geylang", "Eunos",
 
-**Cash_Withdrawal_Count**: Base intensity (total_spend/80) × 0.1 × age factor × occupation factor with normal variation
+    "Bedok", "Tampines", "Pasir Ris", "Simei",
 
-**Recurring_Transaction_Count**: 6-12 for employed/self-employed/age>35, 3-8 for others
+    "Jurong East", "Jurong West", "Clementi", "Bukit Batok",
 
-**Preferred_Payment_Channel**: Channel with highest transaction count from UPI, Debit Card, Credit Card, Cash
+    "Bukit Panjang", "Choa Chu Kang", "Woodlands", "Yishun",
 
-**Recurring_Payment_Ratio**: Recurring count divided by total transactions
+    "Sembawang", "Ang Mo Kio", "Bishan", "Toa Payoh",
 
-**Savings_to_Spend_Ratio**: Realistic ranges based on employment and age: Unemployed (-15% to 5%), Student (-8% to 10%), Age>50 (15% to 35%), Age<30 (5% to 20%), others (8% to 25%)
+    "Serangoon", "Hougang", "Punggol", "Sengkang"
 
-**Spend_Growth_Rate_YoY**: Normal distribution: Unemployed (mean -5%, std 12%), others (mean 4%, std 12%)
+])
 
-**High_Value_Transaction_Count**: Poisson distribution based on total spend divided by high value threshold (7% of monthly income)
 
-**Flight_Risk_Score**: Calculated as: (financial_stress_score/100 × 0.4) + ((1 - payment_history) × 0.3) + (min(1, missed_payments × 0.1) × 0.2) + ((1 - min(1, payment_history)) × 0.1) with age adjustments
 
-**Financial_Health_Status**: Derived from financial stress score: ≤25 (Healthy), ≤50 (Moderate), ≤75 (Stressed), >75 (Critical)
+# Names arrays
 
-**Financial_Stress_Score**: Weighted sum: spend_income_ratio (30%), savings_ratio (25%), payment_history (20%), missed_payments (15%), debt_to_income (10%) with employment and age adjustments
+chinese_first_names = np.array(["Wei", "Jie", "Ming", "Li", "Xin", "Hui", "Yan", "Feng", "Jun", "Ling"])
 
-**Avg_Balance_Trends**: Based on savings_ratio: >15% (Rising), <-8% (Falling), else (Stable)
+chinese_last_names = np.array(["Tan", "Lim", "Lee", "Ng", "Ong", "Wong", "Chua", "Chan", "Koh", "Teo"])
 
-**Overdraft_or_Low_Balance_Flag**: Boolean: savings_ratio < -12% OR spend_income_ratio > 1.25
+malay_first_names = np.array(["Ahmad", "Mohamed", "Siti", "Abdullah", "Fatimah", "Ali", "Rahman", "Zainal", "Nor", "Hassan"])
 
-**AAR_Score**: Calculated as: (transaction_diversity × 0.4 + recurring_ratio × 0.3 + digital_adoption × 0.3) × age_factor × occupation_factor, then forced to distribution: 88% Low (0.3-0.5), 10% Medium (0.5-0.65), 2% High (0.65-0.75)
+malay_last_names = np.array(["bin Ahmad", "binti Mohamed", "bin Ismail", "binti Abdullah", "bin Ali", "binti Hassan"])
 
-**AAR_Risk_Level**: Categorized from AAR score: ≤0.5 (Low), ≤0.65 (Medium), >0.65 (High)
+indian_first_names = np.array(["Raj", "Kumar", "Suresh", "Priya", "Latha", "Arjun", "Divya", "Vijay", "Anand", "Deepa"])
 
-**Successful_Contacts_Count**: Guaranteed ≥1, calculated as call_attempts × success_rate with adjustments for age, occupation, payment history, and financial stress
+indian_last_names = np.array(["Kumar", "Devi", "Singh", "Rao", "Patel", "Menon", "Pillai", "Sharma", "Subramaniam", "Gopal"])
 
-**Contact_Success_Rate**: Successful contacts divided by call attempts, adjusted for customer profile
+western_first_names = np.array(["John", "David", "Mary", "Sarah", "Michael", "Jennifer", "James", "Linda", "Robert", "Elizabeth"])
 
-**Last_Successful_Agent_ID**: Top agent from successful contacts, never empty
+western_last_names = np.array(["Smith", "Johnson", "Williams", "Brown", "Jones", "Miller", "Davis", "Garcia", "Rodriguez", "Wilson"])
 
-**Best_Contact_Agent_IDs**: Top 3 agents by interaction count from successful contacts
 
-**Avg_Time_With_Best_Agents_Min**: Base duration (3-10 minutes) adjusted for financial stress score
 
-**Customer_Best_Agent_Interaction_Count**: Highest interaction count with any single agent
+email_domains = np.array(["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "singnet.com.sg"])
 
-**Credit_Score**: Base 650 + (payment_history - 0.5) × 200 - min(missed_payments × 15, 100) - (50 if delinquency else 0) - (20 if partial_payments else 0), clamped 300-850
+product_types = np.array(["Personal loan", "Auto loan", "Credit card", "Education loan", "Business loan"])
 
-**Smartphone_Penetration**: Derived from age, occupation, monthly income, and city: High for age<40/employed/urban, Medium for middle, Low for age>60/unemployed/rural
+interest_rates = {"Personal loan": 8.5, "Auto loan": 9.0, "Credit card": 10.0, "Education loan": 8.0, "Business loan": 9.5}
 
-**Preferred_Channel**: Derived from age, smartphone penetration, and digital transaction ratio: WhatsApp for young/high digital, SMS for medium, Call for older/low digital
+loan_amount_limits = {
 
-**Contact_History_Call_Attempts**: Successful contacts × random factor (1.2-2.0)
+    "Personal loan": (5000, 100000), "Auto loan": (5000, 200000), "Credit card": (5000, 50000),
 
-**Contact_History_SMS**: Successful contacts × random factor (0.8-1.5)
+    "Education loan": (5000, 100000), "Business loan": (5000, 500000)
 
-**Contact_History_WhatsApp**: Successful contacts × random factor (0.5-1.2)
+}
 
-**Contact_History_EmailLogs**: Successful contacts × random factor (0.3-0.8)
 
-**No_of_Attempts**: Sum of all contact history methods
 
-**Average_Handling_Time**: Random uniform 3-15 minutes if successful contacts > 0, else 0
+income_bands = {
 
-**Channel_used**: Based on successful contacts, preferred channel, and age with some variation
+    "50,000 or Below": (25000, 50000),
 
-**Response_Outcome**: Derived from successful contacts, contact success rate, payment history, and financial stress: Connected, Promised to pay, Partial paid, Ignored, Disconnected
+    "50,000 to 100,000": (50000, 100000),
 
-**Recent_Score_Change**: Random integer between -40 and +41
+    "100,000 to 200,000": (100000, 200000),
 
-**Mobile_Number_Active_Status**: Same as Valid_Phone_Number
+    "200,000 to 300,000": (200000, 300000),
 
-**Email_Activity**: Random boolean with 80% true probability
+    "300,000 to 500,000": (300000, 500000),
 
-**Customer_Employment_Status**: Derived from occupation: "Employed" if occupation is Employed or Self-Employed, else "Unemployed"
+    "500,000 or Above": (500000, 2000000)
 
-**Day_Past_Due**: Calculated based on payment behavior: good payers (0-15 days), average payers (0-30 days), poor payers (15-90 days)
+}
 
-**Total_Transactions**: Sum of UPI, debit, credit, and cash transaction counts
+
+
+# UPDATED: Use only the specified regions
+
+regions = np.array([
+
+    "Battery Road", "Orchard", "Marina Bay", "Suntec City",
+
+    "Harbourfront", "Serangoon Garden", "Marine Parade", "Bukit Timah"
+
+])
+
+
+
+agent_ids = np.array([f"SCB_AG_{i:04d}" for i in range(1, 201)])
+
+
+
+# Singapore area to pincode mapping (based on actual Singapore postal codes)
+
+area_pincode_mapping = {
+
+    # Central Area
+
+    "Raffles Place": "048621",
+
+    "Battery Road": "049908",
+
+    "Market Street": "048940",
+
+    "Marina Bay": "018956",
+
+    "Marina Boulevard": "018981",
+
+    "Bayfront Avenue": "018971",
+
+    "Marina": "018956",
+
+
+
+    # Orchard Road Area
+
+    "Orchard": "238839",
+
+    "Orchard Road": "238862",
+
+    "Scotts Road": "228210",
+
+    "Tanglin Road": "247905",
+
+    "Cairnhill": "229662",
+
+    "River Valley": "238275",
+
+
+
+    # Suntec City Area
+
+    "Suntec City": "038989",
+
+    "Temasek Avenue": "039192",
+
+    "Suntec City Drive": "038985",
+
+
+
+    # Harbourfront Area
+
+    "Harbourfront": "099253",
+
+    "HarbourFront Walk": "098585",
+
+    "Sentosa Gateway": "098138",
+
+    "Telok Blangah Road": "108442",
+
+    "HarbourFront": "099253",
+
+
+
+    # Serangoon Garden Area
+
+    "Serangoon Garden": "558259",
+
+    "Serangoon Garden Way": "558057",
+
+    "Serangoon Garden Circus": "558069",
+
+    "Kensington Park Road": "557269",
+
+
+
+    # Marine Parade Area
+
+    "Marine Parade": "449269",
+
+    "Marine Parade Road": "449384",
+
+    "East Coast Road": "428776",
+
+    "Amber Road": "439864",
+
+
+
+    # Bukit Timah Area
+
+    "Bukit Timah": "588179",
+
+    "Bukit Timah Road": "279855",
+
+    "Holland Road": "278993",
+
+    "Dunearn Road": "299439",
+
+    "Ardmore": "259959",
+
+
+
+    # Other common areas
+
+    "Tanjong Pagar": "088534",
+
+    "Chinatown": "059413",
+
+    "Little India": "217959",
+
+    "Kampong Glam": "199443",
+
+    "Bugis": "188025",
+
+    "Dhoby Ghaut": "238873",
+
+    "Somerset": "238164",
+
+    "City Hall": "179094",
+
+    "Lavender": "338732",
+
+    "Kallang": "397694",
+
+    "Geylang": "389705",
+
+    "Eunos": "419839",
+
+    "Bedok": "464337",
+
+    "Tampines": "528734",
+
+    "Pasir Ris": "518457",
+
+    "Simei": "529889",
+
+    "Jurong East": "609788",
+
+    "Jurong West": "648332",
+
+    "Clementi": "129742",
+
+    "Bukit Batok": "659234",
+
+    "Bukit Panjang": "679734",
+
+    "Choa Chu Kang": "689812",
+
+    "Woodlands": "738992",
+
+    "Yishun": "768743",
+
+    "Sembawang": "758329",
+
+    "Ang Mo Kio": "569766",
+
+    "Bishan": "579832",
+
+    "Toa Payoh": "319842",
+
+    "Serangoon": "558233",
+
+    "Hougang": "538768",
+
+    "Punggol": "828812",
+
+    "Sengkang": "544835",
+
+
+
+    # Additional areas from districts
+
+    "People's Park": "059108",
+
+    "Anson": "079903",
+
+    "Queenstown": "149066",
+
+    "Tiong Bahru": "168732",
+
+    "Pasir Panjang": "118537",
+
+    "Hong Leong Garden": "128332",
+
+    "Clementi New Town": "129957",
+
+    "High Street": "179434",
+
+    "Beach Road": "189677",
+
+    "Middle Road": "188976",
+
+    "Golden Mile": "199102",
+
+    "Farrer Park": "217562",
+
+    "Balestier": "329682",
+
+    "Macpherson": "387472",
+
+    "Braddell": "579102",
+
+    "Joo Chiat": "427992",
+
+    "Upper East Coast": "465029",
+
+    "Eastwood": "486752",
+
+    "Kew Drive": "467293",
+
+    "Loyang": "508937",
+
+    "Changi": "486839",
+
+    "Upper Bukit Timah": "588234",
+
+    "Clementi Park": "129744",
+
+    "Ulu Pandan": "596234",
+
+    "Hillview": "669233",
+
+    "Dairy Farm": "679023",
+
+    "Lim Chu Kang": "718923",
+
+    "Tengah": "688532",
+
+    "Kranji": "739452",
+
+    "Woodgrove": "738492",
+
+    "Upper Thomson": "574382",
+
+    "Springleaf": "769043",
+
+    "Seletar": "797735"
+
+}
+
+
+
+# Enhanced Customer ID generation
+
+def generate_customer_id():
+
+    """Generate Customer ID starting with 8 or 9, no 3 consecutive repeating numbers, and unique"""
+
+    while True:
+
+        # Start with 8 or 9
+
+        first_digit = str(np.random.choice([8, 9]))
+
+
+
+        # Generate remaining 8 digits
+
+        digits = [first_digit]
+
+        for i in range(8):
+
+            if len(digits) >= 2 and digits[-1] == digits[-2]:
+
+                # If last two digits are same, avoid making third consecutive
+
+                available_digits = [str(x) for x in range(10) if str(x) != digits[-1]]
+
+            else:
+
+                available_digits = [str(x) for x in range(10)]
+
+
+
+            next_digit = np.random.choice(available_digits)
+
+            digits.append(next_digit)
+
+
+
+        customer_id = "SCB" + ''.join(digits)
+
+
+
+        # Check for three consecutive repeating digits
+
+        has_three_consecutive = False
+
+        for i in range(len(digits) - 2):
+
+            if digits[i] == digits[i+1] == digits[i+2]:
+
+                has_three_consecutive = True
+
+                break
+
+
+
+        if not has_three_consecutive:
+
+            return customer_id
+
+
+
+# Pre-generate unique customer IDs to ensure uniqueness
+
+def generate_unique_customer_ids(n):
+
+    """Generate n unique customer IDs"""
+
+    customer_ids = set()
+
+    while len(customer_ids) < n:
+
+        customer_id = generate_customer_id()
+
+        customer_ids.add(customer_id)
+
+    return list(customer_ids)
+
+
+
+# Enhanced Address Generation with actual Singapore pincodes
+
+def generate_realistic_address(region):
+
+    """Generate realistic Singapore address with proper format and actual pincodes"""
+
+
+
+    # House number (1-999, with some having block numbers for HDB)
+
+    if np.random.random() < 0.6:  # 60% HDB addresses
+
+        block_number = np.random.randint(1, 999)
+
+        unit_number = f"{np.random.randint(1, 50):02d}-{np.random.randint(1, 99):02d}"
+
+        house_part = f"Blk {block_number} #{unit_number}"
+
+    else:  # 40% private housing
+
+        house_number = np.random.randint(1, 999)
+
+        house_part = f"{house_number}"
+
+
+
+    # Street name
+
+    street = np.random.choice(street_names)
+
+
+
+    # Area (based on region)
+
+    if region == "Battery Road":
+
+        area_options = ["Raffles Place", "Battery Road", "Market Street"]
+
+    elif region == "Orchard":
+
+        area_options = ["Orchard Road", "Scotts Road", "Tanglin Road"]
+
+    elif region == "Marina Bay":
+
+        area_options = ["Marina Boulevard", "Raffles Boulevard", "Bayfront Avenue"]
+
+    elif region == "Suntec City":
+
+        area_options = ["Temasek Avenue", "Suntec City Drive", "Raffles Boulevard"]
+
+    elif region == "Harbourfront":
+
+        area_options = ["HarbourFront Walk", "Sentosa Gateway", "Telok Blangah Road"]
+
+    elif region == "Serangoon Garden":
+
+        area_options = ["Serangoon Garden Way", "Serangoon Garden Circus", "Kensington Park Road"]
+
+    elif region == "Marine Parade":
+
+        area_options = ["Marine Parade Road", "East Coast Road", "Amber Road"]
+
+    elif region == "Bukit Timah":
+
+        area_options = ["Bukit Timah Road", "Holland Road", "Dunearn Road"]
+
+    else:
+
+        area_options = [region]
+
+
+
+    area = np.random.choice(area_options)
+
+
+
+    # Get actual pincode for the area
+
+    if area in area_pincode_mapping:
+
+        pincode = area_pincode_mapping[area]
+
+    else:
+
+        # Fallback: use region pincode if area not found
+
+        if region in area_pincode_mapping:
+
+            pincode = area_pincode_mapping[region]
+
+        else:
+
+            # Final fallback: use central area pincode
+
+            pincode = "048621"
+
+
+
+    # City (always Singapore)
+
+    city = "Singapore"
+
+
+
+    # Country (always Singapore)
+
+    country = "Singapore"
+
+
+
+    # Format: House Number, Street, Area, City, Country, Pincode
+
+    address = f"{house_part}, {street}, {area}, {city}, {country} {pincode}"
+
+
+
+    return address, area, pincode
+
+
+
+# FIXED: Generate primary mobile numbers with matching choices and probabilities
+
+def generate_singapore_mobile_numbers(n, valid_ratio=0.92):
+
+    prefixes = np.random.choice(['8', '9'], n)
+
+    numbers = np.random.randint(0, 10000000, n)
+
+    numbers = [f"{num:07d}" for num in numbers]
+
+
+
+    valid_mask = np.random.random(n) < valid_ratio
+
+    mobile_numbers = []
+
+
+
+    for i in range(n):
+
+        if valid_mask[i]:
+
+            mobile_numbers.append(f"+65 {prefixes[i]}{numbers[i][:3]} {numbers[i][3:]}")
+
+        else:
+
+            # More realistic invalid patterns - FIXED: 6 choices with 6 probabilities
+
+            invalid_type = np.random.choice([
+
+                # Missing digits
+
+                f"+65 {prefixes[i]}{numbers[i][:6]}",  # Missing last digit
+
+                f"+65 {prefixes[i]}{numbers[i][:5]}",  # Missing last 2 digits
+
+                # Wrong prefix
+
+                f"+65 {np.random.choice(['6', '7'])}{numbers[i]}",  # Invalid mobile prefix
+
+                # Extra digits
+
+                f"+65 {prefixes[i]}{numbers[i]}{np.random.randint(0,10)}",  # Extra digit
+
+                # Wrong format
+
+                f"+65{prefixes[i]}{numbers[i][:3]}{numbers[i][3:]}",  # No space
+
+                f"65 {prefixes[i]}{numbers[i][:3]} {numbers[i][3:]}"  # Missing +
+
+            ], p=[0.3, 0.2, 0.2, 0.15, 0.1, 0.05])  # 6 probabilities for 6 choices
+
+            mobile_numbers.append(invalid_type)
+
+
+
+    return mobile_numbers, valid_mask
+
+
+
+# FIXED: Generate secondary mobile numbers with matching choices and probabilities
+
+def generate_secondary_mobile_numbers(n, valid_ratio=0.75):
+
+    """Generate secondary mobile numbers with no NULL values and realistic invalid patterns"""
+
+    prefixes = np.random.choice(['8', '9'], n)
+
+    numbers = np.random.randint(0, 10000000, n)
+
+    numbers = [f"{num:07d}" for num in numbers]
+
+
+
+    valid_mask = np.random.random(n) < valid_ratio
+
+    mobile_numbers = []
+
+
+
+    for i in range(n):
+
+        if valid_mask[i]:
+
+            mobile_numbers.append(f"+65 {prefixes[i]}{numbers[i][:3]} {numbers[i][3:]}")
+
+        else:
+
+            # More realistic invalid patterns for secondary numbers - FIXED: 6 choices with 6 probabilities
+
+            invalid_type = np.random.choice([
+
+                # Missing digits (more common for secondary)
+
+                f"+65 {prefixes[i]}{numbers[i][:6]}",  # Missing last digit
+
+                f"+65 {prefixes[i]}{numbers[i][:5]}",  # Missing last 2 digits
+
+                # Wrong prefix
+
+                f"+65 {np.random.choice(['6', '7'])}{numbers[i]}",  # Invalid mobile prefix
+
+                # Extra digits
+
+                f"+65 {prefixes[i]}{numbers[i]}{np.random.randint(0,10)}",  # Extra digit
+
+                # Disconnected/old numbers
+
+                f"+65 {np.random.choice(['8', '9'])}{np.random.randint(1000000, 9999999):07d}",  # Different number
+
+                # Wrong format
+
+                f"+65{prefixes[i]}{numbers[i][:3]}{numbers[i][3:]}",  # No space
+
+            ], p=[0.25, 0.2, 0.15, 0.15, 0.15, 0.1])  # 6 probabilities for 6 choices
+
+            mobile_numbers.append(invalid_type)
+
+
+
+    return mobile_numbers, valid_mask
+
+
+
+# FIXED: Generate landline numbers with matching choices and probabilities
+
+def generate_landline_numbers(n, valid_ratio=0.85):
+
+    """Generate Singapore landline numbers with realistic invalid patterns"""
+
+    # Singapore landline prefixes
+
+    prefixes = ['6']  # Landlines start with 6
+
+    area_codes = ['2', '3', '6', '8']  # Common area codes
+
+
+
+    landline_numbers = []
+
+    valid_mask = np.random.random(n) < valid_ratio
+
+
+
+    for i in range(n):
+
+        if valid_mask[i]:
+
+            # Valid landline format: +65 XXXX XXXX
+
+            area_code = np.random.choice(area_codes)
+
+            number = f"{np.random.randint(1000, 9999):04d}"
+
+            landline_numbers.append(f"+65 {area_code}{number[:3]} {number[3:]}")
+
+        else:
+
+            # Realistic invalid landline patterns - FIXED: 6 choices with 6 probabilities
+
+            invalid_type = np.random.choice([
+
+                # Wrong prefix
+
+                f"+65 {np.random.choice(['8', '9'])}{np.random.randint(1000, 9999):04d}",  # Mobile prefix
+
+                # Missing digits
+
+                f"+65 {np.random.choice(area_codes)}{np.random.randint(100, 999):03d}",  # Too short
+
+                # Extra digits
+
+                f"+65 {np.random.choice(area_codes)}{np.random.randint(10000, 99999):05d}",  # Too long
+
+                # Wrong format
+
+                f"65 {np.random.choice(area_codes)}{np.random.randint(1000, 9999):04d}",  # Missing +
+
+                f"+65{np.random.choice(area_codes)}{np.random.randint(1000, 9999):04d}",  # No space
+
+                # Disconnected numbers
+
+                f"+65 {np.random.choice(['2', '3'])}{np.random.randint(1000, 5000):04d}",  # Old area codes
+
+            ], p=[0.3, 0.25, 0.2, 0.15, 0.05, 0.05])  # 6 probabilities for 6 choices
+
+            landline_numbers.append(invalid_type)
+
+
+
+    return landline_numbers, valid_mask
+
+
+
+# UPDATE: Enhanced phone number validation tracking
+
+def validate_phone_number_patterns(primary_numbers, secondary_numbers, landline_numbers):
+
+    """Validate phone number patterns and categorize invalid types"""
+
+    primary_invalid_types = defaultdict(int)
+
+    secondary_invalid_types = defaultdict(int)
+
+    landline_invalid_types = defaultdict(int)
+
+
+
+    def categorize_invalid_number(number, number_type):
+
+        if not number.startswith('+65 '):
+
+            return "Missing country code"
+
+        if len(number.replace(' ', '')) < 11:  # +65XXXXXXXX
+
+            return "Too short"
+
+        if len(number.replace(' ', '')) > 12:  # +65XXXXXXXXX
+
+            return "Too long"
+
+        if '  ' in number:
+
+            return "Double space"
+
+        if not any(char.isdigit() for char in number.split()[-1]):
+
+            return "Missing digits"
+
+
+
+        if number_type == "mobile":
+
+            if number.split()[1][0] not in ['8', '9']:  # For mobile numbers
+
+                return "Wrong prefix"
+
+        elif number_type == "landline":
+
+            if number.split()[1][0] not in ['6']:  # For landline numbers
+
+                return "Wrong prefix"
+
+
+
+        return "Other format issue"
+
+
+
+    # Check primary numbers
+
+    for num in primary_numbers:
+
+        if not num.startswith('+65 8') and not num.startswith('+65 9'):
+
+            primary_invalid_types[categorize_invalid_number(num, "mobile")] += 1
+
+
+
+    # Check secondary numbers
+
+    for num in secondary_numbers:
+
+        if not num.startswith('+65 8') and not num.startswith('+65 9'):
+
+            secondary_invalid_types[categorize_invalid_number(num, "mobile")] += 1
+
+
+
+    # Check landline numbers
+
+    for num in landline_numbers:
+
+        if not num.startswith('+65 6'):
+
+            landline_invalid_types[categorize_invalid_number(num, "landline")] += 1
+
+
+
+    return primary_invalid_types, secondary_invalid_types, landline_invalid_types
+
+
+
+# UPDATED: Enhanced Last Payment Date and Days Past Due Logic with exact distributions
+
+def generate_realistic_last_payment_and_dpd(months_completed, payment_history, tenure, current_date):
+
+    """
+
+    Generate realistic last payment date and days past due based on payment behavior
+
+    with UPDATED exact distributions
+
+    """
+
+
+
+    # UPDATED: Exact distribution for last payment date (days ago)
+
+    rand_val = np.random.random()
+
+
+
+    if rand_val <= 0.896:  # 89.6%: Last payment within 3 months (0-90 days)
+
+        days_ago = np.random.randint(1, 91)  # 1-90 days ago
+
+    elif rand_val <= 0.959:  # 6.3%: Last payment 3-8 months ago (91-240 days)
+
+        days_ago = np.random.randint(91, 241)  # 91-240 days ago
+
+    elif rand_val <= 0.992:  # 3.3%: Last payment 8-12 months ago (241-365 days)
+
+        days_ago = np.random.randint(241, 366)  # 241-365 days ago
+
+    else:  # 0.8%: Last payment more than 12 months ago
+
+        days_ago = np.random.randint(366, 731)  # 366-730 days ago (up to 2 years)
+
+
+
+    # Adjust based on payment history - good payers have more recent payments
+
+    if payment_history > 0.8:
+
+        # Good payers: cap at 60 days ago (within 2 months)
+
+        days_ago = min(days_ago, 60)
+
+    elif payment_history > 0.6:
+
+        # Average payers: cap at 120 days ago (within 4 months)
+
+        days_ago = min(days_ago, 120)
+
+    # Poor payers keep the original distribution
+
+
+
+    last_payment_date = current_date - timedelta(days=days_ago)
+
+
+
+    # UPDATED: Calculate days past due with EXACT distribution targets
+
+    if months_completed > 0:
+
+        # Next due date would be approximately 30 days after last payment
+
+        next_due_date = last_payment_date + timedelta(days=30)
+
+
+
+        # Days past due is the number of days from next due date to current date
+
+        if current_date > next_due_date:
+
+            days_past_due = (current_date - next_due_date).days
+
+        else:
+
+            days_past_due = 0
+
+
+
+        # UPDATED: Apply exact DPD distribution as requested
+
+        dpd_rand = np.random.random()
+
+
+
+        # Exact target distribution:
+
+        # 0 days: 10% (reduced from 14.9%)
+
+        # 1-15 days: 38% (maintain current)
+
+        # 16-30 days: 30% (increased from 16%)
+
+        # 31-60 days: 15% (increased from 5.3%)
+
+        # 61+ days: 7% (reduced from 25.9%)
+
+
+
+        if dpd_rand <= 0.10:  # 10%: 0 days past due
+
+            days_past_due = 0
+
+        elif dpd_rand <= 0.48:  # 38%: 1-15 days past due
+
+            days_past_due = min(days_past_due, np.random.randint(1, 16))
+
+        elif dpd_rand <= 0.78:  # 30%: 16-30 days past due
+
+            days_past_due = min(days_past_due, np.random.randint(16, 31))
+
+        elif dpd_rand <= 0.93:  # 15%: 31-60 days past due
+
+            days_past_due = min(days_past_due, np.random.randint(31, 61))
+
+        else:  # 7%: 61+ days past due
+
+            days_past_due = min(days_past_due, np.random.randint(61, 121))
+
+
+
+        # Ensure days past due is realistic based on payment history
+
+        if payment_history > 0.8 and days_past_due > 10:
+
+            days_past_due = np.random.randint(0, 11)
+
+        elif payment_history > 0.6 and days_past_due > 25:
+
+            days_past_due = np.random.randint(0, 26)
+
+
+
+    else:
+
+        # New loan, no payments yet
+
+        days_past_due = 0
+
+
+
+    return last_payment_date, days_past_due
+
+
+
+# Enhanced Age-Occupation distribution with reduced extreme stress
+
+def generate_age_occupation_distribution(n):
+
+    """Generate realistic age-occupation pairs with reduced extreme stress profiles"""
+
+    ages = []
+
+    occupations = []
+
+
+
+    for i in range(n):
+
+        # Age distribution with realistic peaks
+
+        age_group = np.random.choice([
+
+            "young_adult", "adult", "middle_aged", "senior"
+
+        ], p=[0.25, 0.40, 0.25, 0.10])
+
+
+
+        if age_group == "young_adult":
+
+            age = np.random.randint(18, 30)
+
+            occupation = np.random.choice([
+
+                "Student", "Employed", "Employed", "Self-Employed", "Unemployed"
+
+            ], p=[0.30, 0.50, 0.10, 0.05, 0.05])
+
+
+
+        elif age_group == "adult":
+
+            age = np.random.randint(30, 45)
+
+            occupation = np.random.choice([
+
+                "Employed", "Self-Employed", "Homemaker", "Unemployed"
+
+            ], p=[0.78, 0.15, 0.05, 0.02])  # Reduced unemployed
+
+
+
+        elif age_group == "middle_aged":
+
+            age = np.random.randint(45, 60)
+
+            occupation = np.random.choice([
+
+                "Employed", "Self-Employed", "Retired", "Homemaker", "Unemployed"
+
+            ], p=[0.70, 0.20, 0.05, 0.04, 0.01])  # Reduced unemployed
+
+
+
+        else:  # senior
+
+            age = np.random.randint(60, 76)
+
+            occupation = np.random.choice([
+
+                "Retired", "Employed", "Self-Employed", "Homemaker", "Unemployed"
+
+            ], p=[0.75, 0.15, 0.05, 0.04, 0.01])  # Reduced unemployed
+
+
+
+        # Ensure realistic constraints
+
+        if occupation == "Student" and age > 25:
+
+            if np.random.random() < 0.02:
+
+                age = min(age, 35)
+
+            else:
+
+                occupation = "Employed"
+
+
+
+        if occupation == "Retired" and age < 55:
+
+            if np.random.random() < 0.03:
+
+                age = max(age, 50)
+
+            else:
+
+                occupation = "Employed"
+
+
+
+        ages.append(age)
+
+        occupations.append(occupation)
+
+
+
+    return np.array(ages), np.array(occupations)
+
+
+
+# Enhanced financial stress score with realistic logic
+
+def calculate_financial_stress_score(monthly_income, total_spend, savings_ratio, payment_history,
+
+                                   missed_payments, employment_status, age, occupation, debt_to_income_ratio):
+
+    """Calculate realistic financial stress score based on multiple factors"""
+
+
+
+    # Factor 1: Spending to Income Ratio (30% weight)
+
+    spend_income_ratio = total_spend / monthly_income if monthly_income > 0 else 2.0
+
+    if spend_income_ratio <= 0.6:
+
+        factor1 = 0.1
+
+    elif spend_income_ratio <= 0.8:
+
+        factor1 = 0.3
+
+    elif spend_income_ratio <= 1.0:
+
+        factor1 = 0.6
+
+    elif spend_income_ratio <= 1.2:
+
+        factor1 = 0.8
+
+    else:
+
+        factor1 = 1.0
+
+
+
+    # Factor 2: Savings Ratio (25% weight)
+
+    if savings_ratio >= 0.2:
+
+        factor2 = 0.1
+
+    elif savings_ratio >= 0.1:
+
+        factor2 = 0.3
+
+    elif savings_ratio >= 0:
+
+        factor2 = 0.6
+
+    elif savings_ratio >= -0.1:
+
+        factor2 = 0.8
+
+    else:
+
+        factor2 = 1.0
+
+
+
+    # Factor 3: Payment History (20% weight)
+
+    factor3 = 1 - payment_history
+
+
+
+    # Factor 4: Missed Payments (15% weight)
+
+    missed_payment_factor = min(1.0, missed_payments * 0.2)
+
+
+
+    # Factor 5: Debt-to-Income Ratio (10% weight)
+
+    if debt_to_income_ratio <= 0.3:
+
+        factor5 = 0.1
+
+    elif debt_to_income_ratio <= 0.5:
+
+        factor5 = 0.3
+
+    elif debt_to_income_ratio <= 0.7:
+
+        factor5 = 0.6
+
+    elif debt_to_income_ratio <= 1.0:
+
+        factor5 = 0.8
+
+    else:
+
+        factor5 = 1.0
+
+
+
+    # Calculate weighted stress score
+
+    weighted_score = (
+
+        factor1 * 0.30 +
+
+        factor2 * 0.25 +
+
+        factor3 * 0.20 +
+
+        missed_payment_factor * 0.15 +
+
+        factor5 * 0.10
+
+    )
+
+
+
+    # Age and employment adjustments
+
+    if employment_status == "Unemployed":
+
+        weighted_score = min(1.0, weighted_score * 1.3)
+
+    elif occupation == "Student":
+
+        weighted_score = min(1.0, weighted_score * 0.9)
+
+    elif age > 60:
+
+        weighted_score = min(1.0, weighted_score * 1.2)
+
+
+
+    financial_stress_score = weighted_score * 100
+
+
+
+    # Stress status classification
+
+    if financial_stress_score <= 25:
+
+        stress_status = "Low stress"
+
+        health_status = "Healthy"
+
+    elif financial_stress_score <= 50:
+
+        stress_status = "Medium stress"
+
+        health_status = "Moderate"
+
+    elif financial_stress_score <= 75:
+
+        stress_status = "High stress"
+
+        health_status = "Stressed"
+
+    else:
+
+        stress_status = "Extreme High stress"
+
+        health_status = "Critical"
+
+
+
+    # Balance trends - More natural and realistic
+
+    if savings_ratio > 0.15:
+
+        balance_trend = "Rising"
+
+    elif savings_ratio < -0.08:
+
+        balance_trend = "Falling"
+
+    else:
+
+        balance_trend = "Stable"
+
+
+
+    # Overdraft flag - More natural and realistic
+
+    overdraft_flag = (savings_ratio < -0.12 or spend_income_ratio > 1.25)
+
+
+
+    return {
+
+        "finance_stress_status": stress_status,
+
+        "financial_health_status": health_status,
+
+        "financial_stress_score": round(financial_stress_score, 2),
+
+        "avg_balance_trend": balance_trend,
+
+        "overdraft_flag": overdraft_flag
+
+    }
+
+
+
+# Enhanced AAR score calculation with proper distribution
+
+def calculate_aar_score(upi_count, debit_count, credit_count, cash_count, recurring_count,
+
+                       total_transactions, monthly_income, total_spend, age, occupation):
+
+    """Calculate AAR score based on transaction patterns"""
+
+
+
+    # Base factors
+
+    transaction_diversity = min(1.0, (upi_count + debit_count + credit_count) / max(1, total_transactions) * 2)
+
+    recurring_ratio = recurring_count / max(1, total_transactions)
+
+    digital_adoption = (upi_count + debit_count + credit_count) / max(1, total_transactions)
+
+
+
+    # Age factor
+
+    if age < 30:
+
+        age_factor = 1.1
+
+    elif age > 60:
+
+        age_factor = 0.9
+
+    else:
+
+        age_factor = 1.0
+
+
+
+    # Occupation factor
+
+    if occupation in ["Employed", "Self-Employed"]:
+
+        occupation_factor = 1.05
+
+    elif occupation == "Student":
+
+        occupation_factor = 0.95
+
+    else:
+
+        occupation_factor = 1.0
+
+
+
+    # Calculate base AAR score
+
+    base_score = (
+
+        transaction_diversity * 0.4 +
+
+        recurring_ratio * 0.3 +
+
+        digital_adoption * 0.3
+
+    ) * 0.7  # Scale to 0.7 max
+
+
+
+    # Apply factors
+
+    aar_score = base_score * age_factor * occupation_factor
+
+
+
+    # Ensure distribution: 88% low, 10% medium, 2% high
+
+    rand_val = np.random.random()
+
+    if rand_val <= 0.88:  # Low risk
+
+        aar_score = np.random.uniform(0.3, 0.5)
+
+    elif rand_val <= 0.98:  # Medium risk (10%)
+
+        aar_score = np.random.uniform(0.5, 0.65)
+
+    else:  # High risk (2%)
+
+        aar_score = np.random.uniform(0.65, 0.75)
+
+
+
+    # Very rarely above 0.75
+
+    if np.random.random() < 0.005:  # 0.5% chance
+
+        aar_score = min(0.8, aar_score + 0.05)
+
+
+
+    # Round to 6 decimal places
+
+    aar_score = round(aar_score, 6)
+
+
+
+    # Risk level classification
+
+    if aar_score <= 0.5:
+
+        aar_risk = "Low"
+
+    elif aar_score <= 0.65:
+
+        aar_risk = "Medium"
+
+    else:
+
+        aar_risk = "High"
+
+
+
+    return {
+
+        "aar_score": aar_score,
+
+        "aar_risk_level": aar_risk
+
+    }
+
+
+
+# Enhanced payment behavior with reduced negative savings
+
+def generate_enhanced_payment_behavior(monthly_income, total_spend, age, employment_status, occupation):
+
+    """Generate payment behavior with reduced negative savings"""
+
+    base_intensity = total_spend / 80
+
+
+
+    # Age and occupation factors
+
+    if age < 25:
+
+        upi_factor, credit_factor, cash_factor = 1.4, 0.7, 0.8
+
+    elif age > 55:
+
+        upi_factor, credit_factor, cash_factor = 0.6, 1.2, 1.4
+
+    else:
+
+        upi_factor, credit_factor, cash_factor = 1.0, 1.0, 1.0
+
+
+
+    # Occupation adjustments
+
+    if occupation == "Student":
+
+        upi_factor *= 1.3
+
+        credit_factor *= 0.6
+
+    elif occupation == "Retired":
+
+        upi_factor *= 0.7
+
+        cash_factor *= 1.3
+
+
+
+    upi_count = max(5, int(np.random.normal(base_intensity * 0.4 * upi_factor, 8)))
+
+    debit_count = max(3, int(np.random.normal(base_intensity * 0.3, 5)))
+
+    credit_count = max(2, int(np.random.normal(base_intensity * 0.2 * credit_factor, 4)))
+
+    cash_count = max(1, int(np.random.normal(base_intensity * 0.1 * cash_factor, 3)))
+
+
+
+    # Recurring transactions
+
+    if occupation in ["Employed", "Self-Employed"] or age > 35:
+
+        recurring_count = np.random.randint(6, 13)
+
+    else:
+
+        recurring_count = np.random.randint(3, 9)
+
+
+
+    # Preferred channel
+
+    channels = ["UPI", "Debit Card", "Credit Card", "Cash"]
+
+    preferred_channel = channels[np.argmax([upi_count, debit_count, credit_count, cash_count])]
+
+
+
+    # ENHANCED: Reduced negative savings cases
+
+    if employment_status == "Unemployed":
+
+        savings_ratio = np.random.uniform(-0.15, 0.05)
+
+    elif occupation == "Student":
+
+        savings_ratio = np.random.uniform(-0.08, 0.1)
+
+    elif age > 50:
+
+        savings_ratio = np.random.uniform(0.15, 0.35)
+
+    elif age < 30:
+
+        savings_ratio = np.random.uniform(0.05, 0.20)
+
+    else:
+
+        savings_ratio = np.random.uniform(0.08, 0.25)
+
+
+
+    # Further reduced extreme savings anomalies
+
+    if np.random.random() < 0.015:
+
+        savings_ratio = np.random.choice([
+
+            np.random.uniform(-0.3, -0.15),
+
+            np.random.uniform(0.5, 0.7)
+
+        ])
+
+
+
+    # Other metrics
+
+    total_transactions = upi_count + debit_count + credit_count + cash_count
+
+    recurring_ratio = recurring_count / total_transactions if total_transactions > 0 else 0.1
+
+
+
+    if employment_status == "Unemployed":
+
+        spend_growth = np.random.normal(-0.05, 0.12)
+
+    else:
+
+        spend_growth = np.random.normal(0.04, 0.12)
+
+
+
+    high_value_threshold = monthly_income * 0.07
+
+    high_value_count = max(0, int(np.random.poisson(total_spend / high_value_threshold * 0.08)))
+
+
+
+    return {
+
+        "upi_count": upi_count,
+
+        "debit_count": debit_count,
+
+        "credit_count": credit_count,
+
+        "cash_count": cash_count,
+
+        "recurring_count": recurring_count,
+
+        "preferred_channel": preferred_channel,
+
+        "recurring_ratio": round(recurring_ratio, 2),
+
+        "savings_ratio": round(savings_ratio, 2),
+
+        "spend_growth": round(spend_growth, 2),
+
+        "high_value_count": high_value_count,
+
+        "total_transactions": total_transactions
+
+    }
+
+
+
+# FIXED: Enhanced spending profile with corrected normal distribution
+
+def generate_enhanced_spend_profile(monthly_income, employment_status, age, occupation):
+
+    """Generate spending profile with realistic distributions"""
+
+
+
+    # Determine spending profile based on demographics
+
+    if occupation == "Student":
+
+        base_ratios = {"utility": 0.12, "shopping": 0.25, "entertainment": 0.25, "health": 0.08, "education": 0.20, "travel": 0.10}
+
+    elif occupation == "Retired":
+
+        base_ratios = {"utility": 0.18, "shopping": 0.22, "entertainment": 0.12, "health": 0.25, "education": 0.05, "travel": 0.18}
+
+    elif age < 30:
+
+        base_ratios = {"utility": 0.10, "shopping": 0.28, "entertainment": 0.20, "health": 0.08, "education": 0.12, "travel": 0.22}
+
+    elif age > 50:
+
+        base_ratios = {"utility": 0.15, "shopping": 0.25, "entertainment": 0.15, "health": 0.15, "education": 0.08, "travel": 0.22}
+
+    else:
+
+        base_ratios = {"utility": 0.12, "shopping": 0.30, "entertainment": 0.15, "health": 0.12, "education": 0.08, "travel": 0.23}
+
+
+
+    # Individual variation
+
+    for category in base_ratios:
+
+        base_ratios[category] *= np.random.uniform(0.8, 1.2)
+
+
+
+    # Normalize
+
+    total = sum(base_ratios.values())
+
+    for category in base_ratios:
+
+        base_ratios[category] /= total
+
+
+
+    # Total spend calculation
+
+    if employment_status == "Unemployed":
+
+        spend_ratio = np.random.uniform(0.8, 1.2)
+
+    elif occupation == "Student":
+
+        spend_ratio = np.random.uniform(0.8, 1.1)
+
+    else:
+
+        spend_ratio = np.random.uniform(0.5, 0.8)
+
+
+
+    # Reduced extreme spending anomalies
+
+    if np.random.random() < 0.03:
+
+        spend_ratio = np.random.choice([
+
+            np.random.uniform(0.3, 0.5),
+
+            np.random.uniform(1.1, 1.5)
+
+        ])
+
+
+
+    total_monthly_spend = monthly_income * spend_ratio
+
+
+
+    # Calculate category spends
+
+    spends = {}
+
+    for category, ratio in base_ratios.items():
+
+        base_spend = total_monthly_spend * ratio
+
+        monthly_variation = np.random.uniform(0.85, 1.15)
+
+        spends[category] = max(50, base_spend * monthly_variation)
+
+
+
+    actual_total_spend = sum(spends.values())
+
+
+
+    monthly_trend = np.random.normal(total_monthly_spend, total_monthly_spend * 0.12)
+
+    monthly_trend = max(0, monthly_trend)
+
+
+
+    # FIXED: Ensure consistency between total_monthly_spend and spend_ratio
+
+    actual_spend_ratio = actual_total_spend / monthly_income
+
+
+
+    return {
+
+        "utility_spend": round(spends["utility"], 2),
+
+        "shopping_spend": round(spends["shopping"], 2),
+
+        "entertainment_spend": round(spends["entertainment"], 2),
+
+        "health_spend": round(spends["health"], 2),
+
+        "education_spend": round(spends["education"], 2),
+
+        "travel_spend": round(spends["travel"], 2),
+
+        "monthly_spend_trend": round(monthly_trend, 2),
+
+        "seasonal_spend_variation": round(np.random.uniform(0.08, 0.35), 2),
+
+        "weekend_spend_ratio": round(np.random.uniform(0.22, 0.48), 2),
+
+        "festive_spend": round(total_monthly_spend * np.random.uniform(1.15, 2.0), 2),
+
+        "total_monthly_spend": round(actual_total_spend, 2),
+
+        "spend_ratio": round(actual_spend_ratio, 2)  # Use actual calculated ratio
+
+    }
+
+
+
+# FIXED: Proper outstanding balance calculation using amortization formula with bounds
+
+def calculate_outstanding_balance(loan_amount, interest_rate, tenure, months_paid, months_missed, current_emi):
+
+    """Calculate outstanding balance using proper amortization formula with bounds"""
+
+
+
+    # Convert to native Python types
+
+    loan_amount = float(loan_amount)
+
+    interest_rate = float(interest_rate)
+
+    tenure = int(tenure)
+
+    months_paid = int(months_paid)
+
+    months_missed = int(months_missed)
+
+    current_emi = float(current_emi)
+
+
+
+    monthly_rate = interest_rate / 12 / 100
+
+
+
+    # If loan is fully paid or beyond tenure
+
+    if months_paid >= tenure:
+
+        return max(0, loan_amount * 0.01)  # Small residual amount, never negative
+
+
+
+    # Calculate the original EMI using amortization formula
+
+    if monthly_rate > 0:
+
+        original_emi = loan_amount * monthly_rate * (1 + monthly_rate) ** tenure / ((1 + monthly_rate) ** tenure - 1)
+
+    else:
+
+        original_emi = loan_amount / tenure
+
+
+
+    # Calculate remaining principal using amortization formula
+
+    remaining_months = tenure - months_paid
+
+
+
+    if monthly_rate > 0:
+
+        # Present value of remaining payments
+
+        outstanding_principal = original_emi * (1 - (1 + monthly_rate) ** (-remaining_months)) / monthly_rate
+
+    else:
+
+        # Simple case: no interest
+
+        outstanding_principal = loan_amount * (remaining_months / tenure)
+
+
+
+    # Calculate penalty for missed payments with compound interest
+
+    missed_penalty = 0
+
+    if months_missed > 0:
+
+        for i in range(months_missed):
+
+            # Each missed payment accumulates with interest
+
+            missed_penalty += original_emi * (1 + monthly_rate) ** (i + 1)
+
+
+
+    total_outstanding = outstanding_principal + missed_penalty
+
+
+
+    # CRITICAL FIX: Ensure outstanding balance never exceeds loan amount with maximum possible interest
+
+    # Maximum possible is original loan amount compounded for full tenure
+
+    max_possible = loan_amount * (1 + monthly_rate) ** tenure
+
+
+
+    # Apply bounds: outstanding balance should be between 0 and max_possible
+
+    total_outstanding = max(0, min(total_outstanding, max_possible))
+
+
+
+    # ADDITIONAL SAFEGUARD: Never allow outstanding balance to exceed 1.5x loan amount
+
+    # This is a conservative upper bound
+
+    absolute_max = loan_amount * 1.5
+
+    total_outstanding = min(total_outstanding, absolute_max)
+
+
+
+    # FINAL CHECK: If still above loan amount, use amortized principal without penalties
+
+    if total_outstanding > loan_amount:
+
+        # Fallback: use simple proportional method
+
+        total_outstanding = loan_amount * (remaining_months / tenure)
+
+        # Add reasonable penalty (capped)
+
+        reasonable_penalty = min(missed_penalty, loan_amount * 0.1)  # Max 10% penalty
+
+        total_outstanding += reasonable_penalty
+
+        total_outstanding = min(total_outstanding, loan_amount * 1.1)  # Max 10% over loan amount
+
+
+
+    return round(total_outstanding, 2)
+
+
+
+# UPDATED: Realistic loan date calculations with exact distribution logic
+
+def calculate_loan_dates(tenure, months_completed, payment_history, current_date):
+
+    """Calculate proper loan dates with realistic last payment dates and days past due"""
+
+
+
+    # Convert numpy types to Python native types
+
+    tenure_int = int(tenure)
+
+    months_completed_int = int(months_completed)
+
+
+
+    # ENHANCED: Ensure loan is at least 2 months old to guarantee at least one payment
+
+    min_total_days = 60  # At least 2 months to ensure at least one payment
+
+
+
+    # Calculate total days based on months completed (minimum 60 days)
+
+    total_days = max(min_total_days, 30 * months_completed_int)
+
+
+
+    # Loan start date (random in the past, ensuring tenure is reasonable)
+
+    loan_start = current_date - timedelta(days=total_days)
+
+
+
+    # UPDATED: Use enhanced function with exact distributions
+
+    last_payment_date, days_past_due = generate_realistic_last_payment_and_dpd(
+
+        months_completed_int, payment_history, tenure_int, current_date
+
+    )
+
+
+
+    # Next installment due date (based on last payment date + 30 days)
+
+    next_due_date = last_payment_date + timedelta(days=30)
+
+
+
+    return loan_start.date(), last_payment_date.date(), next_due_date.date(), months_completed_int, days_past_due
+
+
+
+# ENHANCED: Contact success data with guaranteed successful contacts and realistic distribution
+
+def generate_contact_success_data(call_attempts, payment_history, employment_status, age, occupation, financial_stress_score):
+
+    """Generate realistic contact success data with guaranteed successful contacts"""
+
+
+
+    # Base success rate based on customer profile
+
+    if payment_history > 0.8 and employment_status == "Employed":
+
+        base_success_rate = np.random.uniform(0.6, 0.9)  # Higher for good payers
+
+    elif payment_history > 0.6:
+
+        base_success_rate = np.random.uniform(0.4, 0.7)
+
+    else:
+
+        base_success_rate = np.random.uniform(0.3, 0.6)  # Higher minimum for poor payers
+
+
+
+    # Age adjustments
+
+    if age > 60:
+
+        base_success_rate *= 1.3  # Older customers much more likely to answer
+
+    elif age < 30:
+
+        base_success_rate *= 0.8  # Younger customers less likely
+
+
+
+    # Occupation adjustments
+
+    if occupation in ["Employed", "Self-Employed"]:
+
+        base_success_rate *= 0.9  # Working people slightly harder to reach
+
+    elif occupation == "Retired":
+
+        base_success_rate *= 1.4  # Retired people much easier to reach
+
+
+
+    # Financial stress adjustments
+
+    if financial_stress_score > 70:
+
+        base_success_rate *= 0.7  # High stress customers harder to reach
+
+    elif financial_stress_score < 30:
+
+        base_success_rate *= 1.2  # Low stress customers easier to reach
+
+
+
+    success_rate = np.clip(np.random.normal(base_success_rate, 0.1), 0.3, 0.95)  # Higher minimum
+
+
+
+    # ENSURE NO ZERO SUCCESSFUL CONTACTS: Calculate with minimum guarantee
+
+    successful_contacts = max(1, int(call_attempts * success_rate))
+
+
+
+    # Recalculate actual success rate based on guaranteed successful contacts
+
+    actual_success_rate = successful_contacts / call_attempts
+
+
+
+    # Generate realistic agent interactions
+
+    available_agents = np.random.choice(agent_ids, min(len(agent_ids), np.random.randint(3, 8)), replace=False)
+
+
+
+    # Create agent interaction counts
+
+    agent_interactions = {}
+
+    if successful_contacts > 0:
+
+        # Distribute successful contacts among available agents
+
+        agent_weights = np.random.dirichlet(np.ones(len(available_agents)))
+
+        agent_counts = (agent_weights * successful_contacts).astype(int)
+
+
+
+        # Ensure total matches (adjust for rounding)
+
+        while sum(agent_counts) < successful_contacts:
+
+            agent_counts[np.random.randint(0, len(agent_counts))] += 1
+
+
+
+        # Assign interactions to agents
+
+        for i, agent in enumerate(available_agents):
+
+            if agent_counts[i] > 0:
+
+                agent_interactions[agent] = agent_counts[i]
+
+
+
+    # Determine best agents (sorted by interaction count)
+
+    sorted_agents = sorted(agent_interactions.items(), key=lambda x: x[1], reverse=True)
+
+    best_agents = [agent for agent, count in sorted_agents[:3]]  # Top 3 agents
+
+
+
+    # Calculate average times for best agents
+
+    avg_times = []
+
+    for agent in best_agents:
+
+        # Base call duration based on customer profile
+
+        base_duration = 3 + (actual_success_rate * 10)
+
+        if financial_stress_score > 70:  # High stress customers take longer
+
+            base_duration += 5
+
+        elif financial_stress_score < 30:  # Low stress customers are quicker
+
+            base_duration -= 1
+
+
+
+        avg_time = round(np.random.normal(base_duration, 2), 2)
+
+        avg_times.append(avg_time)
+
+
+
+    # Last successful agent (most recent successful contact)
+
+    last_successful_agent = best_agents[0] if best_agents else np.random.choice(agent_ids)  # Always assign an agent
+
+
+
+    # Best agent interaction count
+
+    best_agent_interaction_count = sorted_agents[0][1] if sorted_agents else successful_contacts
+
+
+
+    return {
+
+        "successful_contacts": successful_contacts,  # GUARANTEED at least 1
+
+        "contact_success_rate": round(actual_success_rate, 2),
+
+        "last_successful_agent": last_successful_agent,  # Never empty
+
+        "best_agents": ",".join(best_agents) if best_agents else last_successful_agent,
+
+        "avg_times_best_agents": ",".join(map(str, avg_times)) if avg_times else str(round(np.random.uniform(3, 10), 2)),
+
+        "best_agent_interaction_count": best_agent_interaction_count
+
+    }
+
+
+
+# UPDATED: Enhanced missed payments calculation with adjusted distribution for new DPD
+
+def calculate_missed_payments(months_completed, days_past_due, tenure, payment_history,
+
+                            outstanding_balance, loan_amount, employment_status, age, occupation):
+
+    """Calculate realistic missed payments count based on loan behavior and financial profile"""
+
+
+
+    # Base calculation: at least the number of months implied by days past due
+
+    base_missed_from_dpd = days_past_due // 30
+
+
+
+    # UPDATED: Adjust base missed payments based on new DPD distribution
+
+    # With reduced 61+ DPD, we should see fewer extreme missed payments
+
+
+
+    # Calculate payment completion ratio
+
+    if months_completed > 0:
+
+        payment_completion_ratio = payment_history
+
+    else:
+
+        payment_completion_ratio = 0.9  # Default for new loans
+
+
+
+    # Calculate delinquency ratio (how much of the loan is still outstanding)
+
+    delinquency_ratio = outstanding_balance / loan_amount if loan_amount > 0 else 1.0
+
+
+
+    # Base probability factors
+
+    employment_factor = 1.0
+
+    if employment_status == "Unemployed":
+
+        employment_factor = 2.5
+
+    elif employment_status == "Student":
+
+        employment_factor = 1.8
+
+    elif occupation == "Retired":
+
+        employment_factor = 0.7
+
+
+
+    age_factor = 1.0
+
+    if age < 25:
+
+        age_factor = 1.4
+
+    elif age > 60:
+
+        age_factor = 0.6
+
+
+
+    # Calculate expected missed payments based on financial behavior
+
+    financial_stress_factor = (1 - payment_completion_ratio) * delinquency_ratio * 2
+
+
+
+    # Base missed payments calculation
+
+    base_missed = base_missed_from_dpd + (financial_stress_factor * months_completed * 0.3)
+
+
+
+    # Apply employment and age factors
+
+    adjusted_missed = base_missed * employment_factor * age_factor
+
+
+
+    # Add some random variation but ensure it's realistic
+
+    variation = np.random.poisson(adjusted_missed * 0.3)
+
+    total_missed = adjusted_missed + variation
+
+
+
+    # Ensure it's at least the base from days past due but not more than months completed
+
+    total_missed = max(base_missed_from_dpd, min(total_missed, months_completed))
+
+
+
+    # UPDATED: Apply realistic distribution with adjustments for new DPD distribution:
+
+    # - 20%: 0 missed payments (increased excellent payers)
+
+    # - 45%: 1-2 missed payments (slightly increased good payers)
+
+    # - 25%: 3-5 missed payments (maintain moderate delinquency)
+
+    # - 8%: 6-10 missed payments (reduced serious delinquency)
+
+    # - 2%: 11+ missed payments (reduced severe delinquency)
+
+
+
+    rand_val = np.random.random()
+
+    if rand_val < 0.20:  # 20% excellent payers (increased from 15%)
+
+        total_missed = max(0, min(total_missed, 0))
+
+    elif rand_val < 0.65:  # 45% good payers (20% + 45%)
+
+        total_missed = max(1, min(total_missed, np.random.randint(1, 3)))
+
+    elif rand_val < 0.90:  # 25% moderate (20% + 45% + 25%)
+
+        total_missed = max(2, min(total_missed, np.random.randint(3, 6)))
+
+    elif rand_val < 0.98:  # 8% serious (20% + 45% + 25% + 8%)
+
+        total_missed = max(5, min(total_missed, np.random.randint(6, 11)))
+
+    else:  # 2% severe (reduced from 5%)
+
+        total_missed = max(10, min(total_missed, months_completed))
+
+
+
+    # Final bounds check
+
+    total_missed = min(total_missed, months_completed)
+
+    total_missed = max(0, total_missed)  # Can't be negative
+
+
+
+    return int(total_missed)
+
+
+
+# Enhanced settlement history based on communication and payment behavior
+
+def determine_settlement_history(missed_payments, successful_contacts, contact_success_rate,
+
+                               payment_history, financial_stress_score):
+
+    """Determine settlement history based on communication and payment patterns"""
+
+
+
+    if missed_payments == 0:
+
+        return "Settled"
+
+    elif payment_history > 0.7 and successful_contacts > 2:
+
+        return "Under Negotiation"
+
+    elif payment_history > 0.5 and contact_success_rate > 0.3:
+
+        return "Partial Settlement"
+
+    elif financial_stress_score > 70 and successful_contacts == 0:
+
+        return "Not Settled"
+
+    else:
+
+        return np.random.choice(["Partial Settlement", "Not Settled", "Under Negotiation"],
+
+                               p=[0.4, 0.4, 0.2])
+
+
+
+# Enhanced smartphone penetration logic
+
+def determine_smartphone_penetration(age, occupation, monthly_income, region):
+
+    """Determine realistic smartphone penetration based on demographics"""
+
+
+
+    # Base penetration by age
+
+    if age < 25:
+
+        base_penetration = "High"
+
+    elif age < 40:
+
+        base_penetration = "High"
+
+    elif age < 60:
+
+        base_penetration = "Medium"
+
+    else:
+
+        base_penetration = "Low"
+
+
+
+    # Occupation adjustments
+
+    if occupation in ["Student", "Employed", "Self-Employed"]:
+
+        base_penetration = "High"
+
+    elif occupation == "Retired" and monthly_income > 5000:
+
+        base_penetration = "Medium"
+
+    elif occupation == "Unemployed":
+
+        base_penetration = "Low"
+
+
+
+    # Income adjustments
+
+    if monthly_income < 2000:
+
+        base_penetration = "Low"
+
+    elif monthly_income > 8000:
+
+        base_penetration = "High"
+
+
+
+    # Region adjustments (more affluent regions have higher penetration)
+
+    affluent_regions = ["Battery Road", "Orchard", "Marina Bay", "Suntec City"]
+
+    if region in affluent_regions:
+
+        if base_penetration == "Low":
+
+            base_penetration = "Medium"
+
+        elif base_penetration == "Medium":
+
+            base_penetration = "High"
+
+
+
+    return base_penetration
+
+
+
+# Enhanced preferred channel logic
+
+def determine_preferred_channel(age, occupation, smartphone_penetration, upi_count,
+
+                              debit_count, credit_count, cash_count):
+
+    """Determine realistic preferred communication channel"""
+
+
+
+    # Calculate digital transaction ratio
+
+    total_digital = upi_count + debit_count + credit_count
+
+    total_all = total_digital + cash_count
+
+    digital_ratio = total_digital / total_all if total_all > 0 else 0
+
+
+
+    # Age-based preferences
+
+    if age < 30:
+
+        if digital_ratio > 0.7 and smartphone_penetration == "High":
+
+            return "WhatsApp"
+
+        else:
+
+            return "SMS"
+
+    elif age < 50:
+
+        if digital_ratio > 0.5:
+
+            return "Call"
+
+        else:
+
+            return "SMS"
+
+    else:
+
+        if smartphone_penetration == "High":
+
+            return "SMS"
+
+        else:
+
+            return "Call"
+
+
+
+# Flight risk calculation
+
+def calculate_flight_risk(financial_stress_score, payment_history, missed_payments, employment_status, age):
+
+    """Calculate flight risk based on financial behavior"""
+
+    financial_factors = financial_stress_score / 100 * 0.4
+
+    behavioral_factors = (1 - payment_history) * 0.3
+
+    stability_factors = min(1, missed_payments * 0.1) * 0.2
+
+    engagement_factors = (1 - min(1, payment_history)) * 0.1
+
+
+
+    flight_risk = min(1.0, financial_factors + behavioral_factors + stability_factors + engagement_factors)
+
+
+
+    # Age adjustments to flight risk
+
+    if age < 30:
+
+        flight_risk *= 1.2
+
+    elif age > 60:
+
+        flight_risk *= 0.8
+
+
+
+    # Reduced extreme flight risk cases
+
+    if np.random.random() < 0.02:
+
+        flight_risk = np.random.choice([np.random.uniform(0.7, 0.9), np.random.uniform(0.05, 0.15)])
+
+
+
+    return round(flight_risk, 2)
+
+
+
+# Other helper functions
+
+def generate_singaporean_names(n):
+
+    ethnicities = np.random.choice(["Chinese", "Malay", "Indian", "Western"], n, p=[0.74, 0.13, 0.09, 0.04])
+
+    first_names, last_names = [], []
+
+
+
+    for i in range(n):
+
+        ethnicity = ethnicities[i]
+
+        if ethnicity == "Chinese":
+
+            first_names.append(np.random.choice(chinese_first_names))
+
+            last_names.append(np.random.choice(chinese_last_names))
+
+        elif ethnicity == "Malay":
+
+            first_names.append(np.random.choice(malay_first_names))
+
+            last_names.append(np.random.choice(malay_last_names))
+
+        elif ethnicity == "Indian":
+
+            first_names.append(np.random.choice(indian_first_names))
+
+            last_names.append(np.random.choice(indian_last_names))
+
+        else:
+
+            first_names.append(np.random.choice(western_first_names))
+
+            last_names.append(np.random.choice(western_last_names))
+
+
+
+    return [f"{first} {last}" for first, last in zip(first_names, last_names)]
+
+
+
+def generate_loan_data(n):
+
+    product_choices = np.random.choice(product_types, n)
+
+    tenures = np.random.choice([12, 24, 36, 48, 60], n)
+
+
+
+    loan_amounts, interest_rates_arr = [], []
+
+
+
+    for product in product_choices:
+
+        min_amt, max_amt = loan_amount_limits[product]
+
+        step = 5000 if product in ["Auto loan", "Business loan"] else 1000
+
+        amount = np.random.choice(range(min_amt, max_amt + 1, step))
+
+        loan_amounts.append(amount)
+
+        interest_rates_arr.append(interest_rates[product])
+
+
+
+    emis = calculate_emis_vectorized(np.array(loan_amounts), np.array(interest_rates_arr), tenures)
+
+
+
+    return product_choices, loan_amounts, interest_rates_arr, tenures, emis
+
+
+
+def calculate_emis_vectorized(principals, rates, tenures):
+
+    monthly_rates = rates / 1200
+
+    emis = (principals * monthly_rates * (1 + monthly_rates) ** tenures) / ((1 + monthly_rates) ** tenures - 1)
+
+    return np.round(emis, 2)
+
+
+
+def calculate_monthly_income(income_band):
+
+    """Calculate realistic monthly income with some variation within bands"""
+
+    min_income, max_income = income_bands[income_band]
+
+
+
+    # Create more realistic distribution within bands
+
+    if income_band == "50,000 or Below":
+
+        # Skew toward lower end
+
+        annual_income = min_income + (max_income - min_income) * random.betavariate(2, 5)
+
+    elif income_band == "500,000 or Above":
+
+        # Skew toward higher end
+
+        annual_income = min_income + (max_income - min_income) * random.betavariate(5, 2)
+
+    else:
+
+        # More normal distribution for middle bands
+
+        annual_income = random.normalvariate(
+
+            (min_income + max_income) / 2,
+
+            (max_income - min_income) / 6
+
+        )
+
+
+
+    annual_income = max(min_income, min(max_income, annual_income))
+
+    monthly_income = annual_income / 12
+
+
+
+    return round(monthly_income, 2)
+
+
+
+def calculate_monthly_incomes(income_bands_arr):
+
+    monthly_incomes = []
+
+    for income_band in income_bands_arr:
+
+        monthly_income = calculate_monthly_income(income_band)
+
+        monthly_incomes.append(monthly_income)
+
+    return np.array(monthly_incomes)
+
+
+
+def adjust_emi_for_delinquency(base_emi, days_past_due):
+
+    if days_past_due <= 0: return base_emi
+
+    elif days_past_due <= 15: return round(base_emi * 1.02, 2)
+
+    elif days_past_due <= 30: return round(base_emi * 1.05, 2)
+
+    elif days_past_due <= 60: return round(base_emi * 1.08, 2)
+
+    elif days_past_due <= 90: return round(base_emi * 1.12, 2)
+
+    else: return round(base_emi * 1.15, 2)
+
+
+
+def calculate_credit_score(payment_history, missed_payments, delinquency, partial_payments):
+
+    base_score = 650
+
+    payment_impact = (payment_history - 0.5) * 200
+
+    missed_payment_impact = -min(missed_payments * 15, 100)
+
+    delinquency_impact = -50 if delinquency else 0
+
+    partial_impact = -20 if partial_payments else 0
+
+
+
+    score = base_score + payment_impact + missed_payment_impact + delinquency_impact + partial_impact
+
+    return max(300, min(850, int(score)))
+
+
+
+# Enhanced response outcome based on communication
+
+def determine_response_outcome(successful_contacts, contact_success_rate, payment_history, financial_stress_score):
+
+    """Determine realistic response outcome based on communication patterns"""
+
+
+
+    if successful_contacts == 0:
+
+        return "Disconnected"
+
+    elif contact_success_rate > 0.7:
+
+        if payment_history > 0.8:
+
+            return "Connected"
+
+        else:
+
+            return "Promised to pay"
+
+    elif contact_success_rate > 0.4:
+
+        if financial_stress_score > 60:
+
+            return "Partial paid"
+
+        else:
+
+            return "Ignored"
+
+    else:
+
+        return np.random.choice(["Ignored", "Disconnected"], p=[0.6, 0.4])
+
+
+
+# Enhanced channel used based on recent contact patterns
+
+def determine_channel_used(successful_contacts, preferred_channel, age):
+
+    """Determine the channel used for most recent contact"""
+
+
+
+    if successful_contacts == 0:
+
+        # If no successful contacts, use preferred channel as fallback
+
+        channels = ["Call", "SMS", "WhatsApp", "Email", "Field Agent", "IVR"]
+
+        if age < 40:
+
+            return np.random.choice(["Call", "SMS", "WhatsApp"], p=[0.5, 0.3, 0.2])
+
+        else:
+
+            return np.random.choice(["Call", "SMS"], p=[0.6, 0.4])
+
+    else:
+
+        # Use preferred channel with some variation
+
+        channels = {
+
+            "Call": ["Call", "IVR"],
+
+            "SMS": ["SMS", "WhatsApp"],
+
+            "WhatsApp": ["WhatsApp", "SMS"],
+
+            "Email": ["Email", "SMS"],
+
+            "Field Agent": ["Field Agent", "Call"]
+
+        }
+
+
+
+        primary_channel = preferred_channel if preferred_channel in channels else "Call"
+
+        return np.random.choice(channels[primary_channel])
+
+
+
+# ADDED: Function to validate and fix outstanding balance issues
+
+def validate_and_fix_outstanding_balance(df):
+
+    """Validate and fix outstanding balance violations"""
+
+    print("\nValidating and fixing outstanding balance issues...")
+
+
+
+    violations = df['Outstanding_Balance_SGD'] > df['Loan_Amount_SGD']
+
+    violation_count = violations.sum()
+
+
+
+    if violation_count > 0:
+
+        print(f"Found {violation_count} records with Outstanding_Balance_SGD > Loan_Amount_SGD")
+
+        print("Fixing violations...")
+
+
+
+        for idx in df[violations].index:
+
+            loan_amount = df.at[idx, 'Loan_Amount_SGD']
+
+            # Cap outstanding balance at loan amount for violating records
+
+            df.at[idx, 'Outstanding_Balance_SGD'] = min(df.at[idx, 'Outstanding_Balance_SGD'], loan_amount)
+
+
+
+        print(f"Fixed {violation_count} outstanding balance violations")
+
+    else:
+
+        print("✓ No outstanding balance violations found")
+
+
+
+    return df
+
+
+
+# UPDATE: Main batch generation function with enhanced phone number validation
+
+def generate_batch_data(batch_size, customer_ids_batch, current_date):
+
+    """Generate a batch of customer data"""
+
+
+
+    # Generate realistic age-occupation pairs
+
+    ages, occupations = generate_age_occupation_distribution(batch_size)
+
+    employment_status = np.array(["Employed" if occ in ["Employed", "Self-Employed"] else "Unemployed" for occ in occupations])
+
+
+
+    # Income bands
+
+    income_bands_arr = np.random.choice(list(income_bands.keys()), batch_size, p=[0.20, 0.35, 0.25, 0.12, 0.05, 0.03])
+
+    monthly_incomes = calculate_monthly_incomes(income_bands_arr)
+
+
+
+    # Generate names and contact info
+
+    genders_arr = np.random.choice(["Male", "Female", "Others"], batch_size, p=[0.48, 0.48, 0.04])
+
+    full_names = generate_singaporean_names(batch_size)
+
+    first_names = [name.split()[0] for name in full_names]
+
+    last_names = [name.split()[1] if ' ' in name else '' for name in full_names]
+
+
+
+    # FIXED: Communication data with matching choices and probabilities for all number types
+
+    mobile_numbers, valid_primary_mask = generate_singapore_mobile_numbers(batch_size, valid_ratio=0.92)
+
+    secondary_numbers, valid_secondary_mask = generate_secondary_mobile_numbers(batch_size, valid_ratio=0.75)
+
+    landline_numbers, valid_landline_mask = generate_landline_numbers(batch_size, valid_ratio=0.85)
+
+
+
+    # ENHANCED: Track invalid number types for reporting
+
+    primary_invalid_types, secondary_invalid_types, landline_invalid_types = validate_phone_number_patterns(
+
+        mobile_numbers, secondary_numbers, landline_numbers
+
+    )
+
+
+
+    # FIXED: Ensure No_of_Valid_Numbers is integer only (now includes landline)
+
+    no_of_valid_numbers = []
+
+    no_of_invalid_numbers = []
+
+    for i in range(batch_size):
+
+        valid_count = int(valid_primary_mask[i]) + int(valid_secondary_mask[i]) + int(valid_landline_mask[i])
+
+        no_of_valid_numbers.append(valid_count)
+
+        invalid_count = 3 - valid_count  # Always 3 numbers (primary + secondary + landline)
+
+        no_of_invalid_numbers.append(int(invalid_count))
+
+
+
+    # Communication completion and changes
+
+    communication_completion = []
+
+    mobile_change_count = []
+
+    address_change_count = []
+
+
+
+    for i in range(batch_size):
+
+        age = int(ages[i])  # Convert to native Python int
+
+        occupation = occupations[i]
+
+
+
+        if occupation in ["Employed", "Self-Employed"]:
+
+            base_completion = 0.9
+
+        elif occupation == "Student":
+
+            base_completion = 0.85
+
+        else:
+
+            base_completion = 0.75
+
+
+
+        if age > 60:
+
+            base_completion -= 0.1
+
+
+
+        completion = np.clip(np.random.normal(base_completion, 0.08), 0.7, 1.0)
+
+        communication_completion.append(round(completion, 2))
+
+
+
+        if occupation == "Student" or age < 25:
+
+            changes = np.random.poisson(2.5)
+
+        elif occupation == "Unemployed":
+
+            changes = np.random.poisson(1.5)
+
+        else:
+
+            changes = np.random.poisson(0.8)
+
+
+
+        mobile_change_count.append(max(0, int(changes)))
+
+
+
+        if occupation == "Student" or (age < 30 and occupation == "Employed"):
+
+            address_changes = np.random.poisson(1.2)
+
+        elif occupation == "Unemployed":
+
+            address_changes = np.random.poisson(0.8)
+
+        else:
+
+            address_changes = np.random.poisson(0.3)
+
+
+
+        address_change_count.append(max(0, int(address_changes)))
+
+
+
+    communication_completion = np.array(communication_completion)
+
+    mobile_change_count = np.array(mobile_change_count)
+
+    mobile_change_this_year = np.minimum(mobile_change_count, np.random.randint(0, 3, batch_size))
+
+    address_change_count = np.array(address_change_count)
+
+    address_change_this_year = np.minimum(address_change_count, np.random.randint(0, 2, batch_size))
+
+
+
+    # Contact change frequency
+
+    customer_age_years = np.maximum(5, ages - 18)
+
+    total_changes = mobile_change_count + address_change_count
+
+    contact_change_frequency = np.round(total_changes / customer_age_years, 2)
+
+
+
+    # Generate loan data
+
+    product_types_arr, loan_amounts, interest_rates_arr, tenures, base_emis = generate_loan_data(batch_size)
+
+
+
+    # Payment behavior
+
+    on_time_percentages = []
+
+    for i in range(batch_size):
+
+        if occupations[i] in ["Employed", "Self-Employed"]:
+
+            base_payment = np.random.beta(4, 2)
+
+        elif occupations[i] == "Student":
+
+            base_payment = np.random.beta(3, 3)
+
+        else:
+
+            base_payment = np.random.beta(2, 4)
+
+
+
+        if ages[i] > 40:
+
+            base_payment = min(1.0, base_payment * 1.1)
+
+        elif ages[i] < 25:
+
+            base_payment = max(0.1, base_payment * 0.9)
+
+
+
+        on_time_percentages.append(base_payment)
+
+
+
+    on_time_percentages = np.array(on_time_percentages)
+
+    payment_frequencies = ["Regular" if p >= 0.8 else "Irregular" for p in on_time_percentages]
+
+
+
+    # ENHANCED: Loan dates and status - Guarantee at least one payment
+
+    months_completed = []
+
+    days_past_due_arr = []
+
+
+
+    for i in range(batch_size):
+
+        # More realistic months completed based on tenure
+
+        max_possible_months = int(tenures[i]) - 1  # Convert to native int
+
+
+
+        # ENHANCED: Ensure at least 1 month completed for all loans
+
+        min_months = 1
+
+
+
+        if on_time_percentages[i] > 0.8:
+
+            months_completed.append(min(max_possible_months, np.random.randint(min_months, max_possible_months + 1)))
+
+        elif on_time_percentages[i] > 0.6:
+
+            months_completed.append(min(max_possible_months, np.random.randint(min_months, max(2, max_possible_months))))
+
+        else:
+
+            months_completed.append(min(max_possible_months, np.random.randint(min_months, max(1, max_possible_months // 2))))
+
+
+
+    months_completed = np.array(months_completed)
+
+
+
+    # Generate batch data
+
+    batch_data = []
+
+    for i in range(batch_size):
+
+        # Use pre-generated customer ID
+
+        customer_id = customer_ids_batch[i]
+
+
+
+        # Convert to native Python types for calculations
+
+        age = int(ages[i])
+
+        tenure = int(tenures[i])
+
+        months_completed_int = int(months_completed[i])
+
+        monthly_income = float(monthly_incomes[i])
+
+        loan_amount = float(loan_amounts[i])
+
+        interest_rate = float(interest_rates_arr[i])
+
+        base_emi_val = float(base_emis[i])
+
+
+
+        # UPDATED: Region selection
+
+        region = np.random.choice(regions)
+
+
+
+        # UPDATED: Generate realistic address with actual pincodes
+
+        address, area, pincode = generate_realistic_address(region)
+
+
+
+        # UPDATED: Calculate proper loan dates with exact distribution logic
+
+        loan_start_date, last_payment_date, installment_due_date, adjusted_months_completed, days_past_due = calculate_loan_dates(
+
+            tenure, months_completed_int, on_time_percentages[i], current_date
+
+        )
+
+
+
+        # Update months_completed and days_past_due with adjusted values
+
+        months_completed_int = adjusted_months_completed
+
+
+
+        # Loan-specific calculations
+
+        current_emi = adjust_emi_for_delinquency(base_emi_val, days_past_due)
+
+
+
+        # FIXED: Calculate outstanding balance using proper amortization with bounds
+
+        outstanding_balance = calculate_outstanding_balance(
+
+            loan_amount, interest_rate, tenure,
+
+            months_completed_int, 0, current_emi  # Start with 0 missed payments for initial calculation
+
+        )
+
+
+
+        # UPDATED: Realistic missed payments calculation with adjusted distribution
+
+        missed_payments_count = calculate_missed_payments(
+
+            months_completed_int, days_past_due, tenure, on_time_percentages[i],
+
+            outstanding_balance, loan_amount, employment_status[i], age, occupations[i]
+
+        )
+
+
+
+        # Recalculate outstanding balance with actual missed payments
+
+        outstanding_balance = calculate_outstanding_balance(
+
+            loan_amount, interest_rate, tenure,
+
+            months_completed_int, missed_payments_count, current_emi
+
+        )
+
+
+
+        # Enhanced spending profile
+
+        spend_profile = generate_enhanced_spend_profile(
+
+            monthly_income, employment_status[i], age, occupations[i]
+
+        )
+
+
+
+        # Enhanced payment behavior (with reduced negative savings)
+
+        payment_behavior = generate_enhanced_payment_behavior(
+
+            monthly_income, spend_profile["total_monthly_spend"],
+
+            age, employment_status[i], occupations[i]
+
+        )
+
+
+
+        # Calculate debt-to-income ratio for financial stress
+
+        debt_to_income_ratio = (current_emi + spend_profile["total_monthly_spend"] * 0.3) / monthly_income if monthly_income > 0 else 1.0
+
+
+
+        # Enhanced financial stress score (with realistic logic)
+
+        financial_health = calculate_financial_stress_score(
+
+            monthly_income, spend_profile["total_monthly_spend"],
+
+            payment_behavior["savings_ratio"], on_time_percentages[i],
+
+            missed_payments_count, employment_status[i], age, occupations[i], debt_to_income_ratio
+
+        )
+
+
+
+        # Calculate AAR score with proper distribution
+
+        aar_data = calculate_aar_score(
+
+            payment_behavior["upi_count"], payment_behavior["debit_count"],
+
+            payment_behavior["credit_count"], payment_behavior["cash_count"],
+
+            payment_behavior["recurring_count"], payment_behavior["total_transactions"],
+
+            monthly_income, spend_profile["total_monthly_spend"], age, occupations[i]
+
+        )
+
+
+
+        # Calculate flight risk
+
+        flight_risk = calculate_flight_risk(
+
+            financial_health["financial_stress_score"], on_time_percentages[i],
+
+            missed_payments_count, employment_status[i], age
+
+        )
+
+
+
+        # ENHANCED: Last payment date is always available now with exact distribution
+
+        last_payment_date_str = last_payment_date
+
+
+
+        # ENHANCED: Contact success data with guaranteed successful contacts
+
+        call_attempts = max(3, int(np.random.poisson(5)))  # Higher minimum call attempts
+
+        contact_success = generate_contact_success_data(
+
+            call_attempts, on_time_percentages[i], employment_status[i], age,
+
+            occupations[i], financial_health["financial_stress_score"]
+
+        )
+
+
+
+        # Enhanced settlement history
+
+        settlement_history = determine_settlement_history(
+
+            missed_payments_count, contact_success["successful_contacts"],
+
+            contact_success["contact_success_rate"], on_time_percentages[i],
+
+            financial_health["financial_stress_score"]
+
+        )
+
+
+
+        # Credit score
+
+        delinquency = np.random.random() < 0.15
+
+        credit_score = calculate_credit_score(
+
+            on_time_percentages[i], missed_payments_count, delinquency,
+
+            np.random.random() < 0.15
+
+        )
+
+
+
+        # Enhanced smartphone penetration (updated to use region)
+
+        smartphone_penetration = determine_smartphone_penetration(
+
+            age, occupations[i], monthly_income, region
+
+        )
+
+
+
+        # Enhanced preferred channel
+
+        preferred_channel = determine_preferred_channel(
+
+            age, occupations[i], smartphone_penetration,
+
+            payment_behavior["upi_count"], payment_behavior["debit_count"],
+
+            payment_behavior["credit_count"], payment_behavior["cash_count"]
+
+        )
+
+
+
+        # Enhanced response outcome and channel used
+
+        response_outcome = determine_response_outcome(
+
+            contact_success["successful_contacts"], contact_success["contact_success_rate"],
+
+            on_time_percentages[i], financial_health["financial_stress_score"]
+
+        )
+
+
+
+        channel_used = determine_channel_used(
+
+            contact_success["successful_contacts"], preferred_channel, age
+
+        )
+
+
+
+        # Enhanced communication history columns
+
+        successful_contacts_count = contact_success["successful_contacts"]
+
+        contact_history_call_attempts = int(successful_contacts_count * np.random.uniform(1.2, 2.0))
+
+        contact_history_sms = int(successful_contacts_count * np.random.uniform(0.8, 1.5))
+
+        contact_history_whatsapp = int(successful_contacts_count * np.random.uniform(0.5, 1.2))
+
+        contact_history_emaillogs = int(successful_contacts_count * np.random.uniform(0.3, 0.8))
+
+        no_of_attempts = contact_history_call_attempts + contact_history_sms + contact_history_whatsapp + contact_history_emaillogs
+
+        average_handling_time = round(np.random.uniform(3, 15), 2) if successful_contacts_count > 0 else 0
+
+
+
+        # Additional communication fields
+
+        app_login_frequency = np.random.poisson(12)
+
+        online_banking_activity = np.random.poisson(10)
+
+        call_sms_activity_patterns = np.random.choice(["Low", "Medium", "High"])
+
+        whatsapp_ott_usage_indicator = np.random.choice([True, False], p=[0.8, 0.2])
+
+        recent_score_change = np.random.randint(-40, 41)
+
+        unemployeement_rate_region = round(np.random.uniform(1.8, 2.2), 2)
+
+        inflation_rate = round(np.random.uniform(3.5, 5.0), 2)
+
+        interest_rate_trend = round(np.random.uniform(-0.1, 0.3), 2)
+
+        economic_stress_index = round(np.random.uniform(0.1, 0.3), 2)
+
+        do_not_call_registry_data = np.random.choice([True, False], p=[0.15, 0.85])
+
+        regional_time_restrictions = np.random.choice(["Morning", "Afternoon", "Evening", "Night"])
+
+        communication_complaince_limits = np.random.choice(["Daytime", "Evening", "Weekdays", "Weekends", "Holidays"])
+
+
+
+        record = {
+
+            # Basic loan information
+
+            "Customer_id": customer_id,
+
+            "Loan_Account_id": int(np.random.randint(10000000, 99999999)),
+
+            "Product_Type": product_types_arr[i],
+
+            "Loan_Amount_SGD": round(loan_amount, 2),
+
+            "Outstanding_Balance_SGD": round(outstanding_balance, 2),
+
+            "Day_Past_Due": days_past_due,
+
+            "Tenure": tenure,
+
+            "Interest_Rate": interest_rate,
+
+            "Current_EMI_SGD": current_emi,
+
+            "Installment_Due_Date": installment_due_date,
+
+            "Last_Payment_Date": last_payment_date_str,  # ALWAYS has a value now with exact distribution
+
+
+
+            # Payment behavior
+
+            "Partial_Payment_Indicator": np.random.random() < 0.15,
+
+            "Number_of_Past_Payments": months_completed_int,
+
+            "Payment_Frequency": payment_frequencies[i],
+
+            "Amount_Paid_Each_Month_SGD": base_emi_val,
+
+            "Missed_Payments_Count": missed_payments_count,  # UPDATED distribution: 0: 20%, 1-2: 45%, 3-5: 25%, 6-10: 8%, 11+: 2%
+
+            "Settlement_History": settlement_history,  # Based on communication data
+
+            "Repayment_Irregularity_Flags": on_time_percentages[i] < 0.7,
+
+
+
+            # Customer profile
+
+            "Customer_Employment_Status": employment_status[i],
+
+
+
+            # ENHANCED: Communication data with realistic invalid numbers
+
+            "Communication_Data_Completion": communication_completion[i],
+
+            "Valid_Phone_Number": valid_primary_mask[i],
+
+            "Secondary_Mobile_Number_Valid": valid_secondary_mask[i],  # NEW: Track secondary number validity
+
+            "Landline_Phone_Number_Valid": valid_landline_mask[i],     # NEW: Track landline validity
+
+            "No_of_Valid_Numbers": no_of_valid_numbers[i],
+
+            "No_of_Invalid_Numbers": no_of_invalid_numbers[i],
+
+            "Mobile_Number_Change_Count": int(mobile_change_count[i]),
+
+            "Mobile_Number_Change_Count_This_Year": int(mobile_change_this_year[i]),
+
+            "Address_Change_Count": int(address_change_count[i]),
+
+            "Address_Change_Count_This_Year": int(address_change_this_year[i]),
+
+            "Contact_Data_Change_Frequency": contact_change_frequency[i],
+
+
+
+            # Spend analysis
+
+            "Finance_Stress_Status": financial_health["finance_stress_status"],
+
+            "Utility_Spend_SGD": spend_profile["utility_spend"],
+
+            "Shopping_Spend_SGD": spend_profile["shopping_spend"],
+
+            "Entertainment_Spend_SGD": spend_profile["entertainment_spend"],
+
+            "Health_Spend_SGD": spend_profile["health_spend"],
+
+            "Education_Spend_SGD": spend_profile["education_spend"],
+
+            "Travel_Spend_SGD": spend_profile["travel_spend"],
+
+            "Monthly_Spend_Trend_SGD": spend_profile["monthly_spend_trend"],
+
+            "Seasonal_Spend_Variation": spend_profile["seasonal_spend_variation"],
+
+            "Weekend_Spend_Ratio": spend_profile["weekend_spend_ratio"],
+
+            "Festive_Season_Spend_SGD": spend_profile["festive_spend"],
+
+            "Total_Monthly_Spend_SGD": spend_profile["total_monthly_spend"],
+
+            "Spend_to_Income_Ratio": spend_profile["spend_ratio"],  # FIXED: Now consistent
+
+
+
+            # Payment behavior
+
+            "UPI_Transaction_Count": payment_behavior["upi_count"],
+
+            "Debit_Card_Transaction_Count": payment_behavior["debit_count"],
+
+            "Credit_Card_Transaction_Count": payment_behavior["credit_count"],
+
+            "Cash_Withdrawal_Count": payment_behavior["cash_count"],
+
+            "Recurring_Transaction_Count": payment_behavior["recurring_count"],
+
+            "Preferred_Payment_Channel": payment_behavior["preferred_channel"],
+
+            "Recurring_Payment_Ratio": payment_behavior["recurring_ratio"],
+
+            "Savings_to_Spend_Ratio": payment_behavior["savings_ratio"],
+
+            "Spend_Growth_Rate_YoY": payment_behavior["spend_growth"],
+
+            "High_Value_Transaction_Count": payment_behavior["high_value_count"],
+
+
+
+            # Financial health
+
+            "Flight_Risk_Score": flight_risk,
+
+            "Financial_Health_Status": financial_health["financial_health_status"],
+
+            "Financial_Stress_Score": financial_health["financial_stress_score"],
+
+            "Avg_Balance_Trends": financial_health["avg_balance_trend"],  # Natural and realistic
+
+            "Overdraft_or_Low_Balance_Flag": financial_health["overdraft_flag"],  # Natural and realistic
+
+            "AAR_Score": aar_data["aar_score"],  # 6 decimal places
+
+            "AAR_Risk_Level": aar_data["aar_risk_level"],
+
+
+
+            # Contact success
+
+            "Successful_Contacts_Count": contact_success["successful_contacts"],  # GUARANTEED NO ZEROS
+
+            "Contact_Success_Rate": contact_success["contact_success_rate"],
+
+            "Last_Successful_Agent_ID": contact_success["last_successful_agent"],  # Never empty
+
+            "Best_Contact_Agent_IDs": contact_success["best_agents"],  # Top agents by successful contacts
+
+            "Avg_Time_With_Best_Agents_Min": contact_success["avg_times_best_agents"],  # Avg time with best agents
+
+            "Customer_Best_Agent_Interaction_Count": contact_success["best_agent_interaction_count"],  # Count with top agent
+
+
+
+            # Customer demographics
+
+            "Name": full_names[i],
+
+            "Age": age,
+
+            "Occupation": occupations[i],
+
+            "Gender": genders_arr[i],
+
+            # ENHANCED: Phone numbers with realistic invalid patterns
+
+            "Primary_Phone_Number": mobile_numbers[i],
+
+            "Secondary_Mobile_Number": secondary_numbers[i],  # ALWAYS has a value now
+
+            "Landline_Phone_Number": landline_numbers[i],     # UPDATED: Now with realistic invalid patterns
+
+            "Email_ID": f"{first_names[i].lower()}.{last_names[i].lower()}@{np.random.choice(email_domains)}",
+
+            "Income_Band_SGD": income_bands_arr[i],
+
+            "Monthly_Income_SGD": monthly_income,
+
+            "Employeement_Type": np.random.choice(["Full time", "Part time", "Contract", "Freelance", "Unemployed"]),
+
+            # UPDATED: Realistic address generation with actual pincodes
+
+            "Address": address,
+
+            "Area": area,  # NEW: Store the extracted area
+
+            "Pincode": pincode,  # NEW: Store the actual Singapore pincode
+
+            # UPDATED: Changed from 'City' to 'Region' and use specified regions only
+
+            "Region": region,
+
+            "Language_Preference": np.random.choice(["English", "Regional"], p=[0.7, 0.3]),
+
+            "Mobile_Number_Active_Status": valid_primary_mask[i],
+
+            "Email_Activity": np.random.random() < 0.8,
+
+
+
+            # Additional fields
+
+            "Credit_Score": credit_score,
+
+            "Recent_Inquiries": int(np.random.poisson(2)),
+
+            "Loan_Exposure_Across_Banks": int(np.random.poisson(1)),
+
+            "Delinquency_on_other_Loans": delinquency,
+
+
+
+            # Communication history (created in batch generation)
+
+            "Contact_History_Call_Attempts": contact_history_call_attempts,
+
+            "Contact_History_SMS": contact_history_sms,
+
+            "Contact_History_WhatsApp": contact_history_whatsapp,
+
+            "Contact_History_EmailLogs": contact_history_emaillogs,
+
+            "No_of_Attempts": no_of_attempts,
+
+            "Average_Handling_Time": average_handling_time,
+
+            "Channel_used": channel_used,
+
+            "Response_Outcome": response_outcome,
+
+            "App_Login_Frequency": app_login_frequency,
+
+            "Online_Banking_Activity": online_banking_activity,
+
+            "Smartphone_Penetration": smartphone_penetration,
+
+            "Preferred_Channel": preferred_channel,
+
+            "Call_SMS_Activity_Patterns": call_sms_activity_patterns,
+
+            "WhatsApp_OTT_usage_Indicator": whatsapp_ott_usage_indicator,
+
+            "Recent_Score_Change": recent_score_change,
+
+            "Unemployeement_rate_region": unemployeement_rate_region,
+
+            "Inflation_Rate": inflation_rate,
+
+            "Interest_Rate_Trend": interest_rate_trend,
+
+            "Economic_Stress_Index": economic_stress_index,
+
+            "Do_Not_Call_Registry_Data": do_not_call_registry_data,
+
+            "Regional_Time_Restrictions": regional_time_restrictions,
+
+            "Communication_Complaince_Limits": communication_complaince_limits,
+
+        }
+
+        batch_data.append(record)
+
+
+
+    return batch_data, primary_invalid_types, secondary_invalid_types, landline_invalid_types
+
+
+
+# UPDATE: Main execution with enhanced phone number validation reporting
+
+def main():
+
+    print(f"Generating {num_records:,} customer records")
+
+
+
+    # Set current date for consistent date generation
+
+    current_date = datetime.now()
+
+
+
+    # Pre-generate unique customer IDs
+
+    print("Generating unique Customer IDs...")
+
+    customer_ids = generate_unique_customer_ids(num_records)
+
+    print(f"Generated {len(customer_ids):,} unique Customer IDs")
+
+
+
+    all_data = []
+
+    start_time = datetime.now()
+
+
+
+    # Track distributions for validation
+
+    age_occupation_tracker = defaultdict(lambda: defaultdict(int))
+
+    stress_tracker = defaultdict(int)
+
+    savings_tracker = defaultdict(int)
+
+    aar_risk_tracker = defaultdict(int)
+
+    last_payment_tracker = defaultdict(int)
+
+    missed_payments_tracker = defaultdict(int)
+
+    successful_contacts_tracker = defaultdict(int)
+
+    secondary_mobile_tracker = defaultdict(int)
+
+    region_tracker = defaultdict(int)
+
+    days_past_due_tracker = defaultdict(int)
+
+    area_tracker = defaultdict(int)
+
+    pincode_tracker = defaultdict(int)
+
+
+
+    # NEW: Track phone number validity
+
+    primary_valid_tracker = defaultdict(int)
+
+    secondary_valid_tracker = defaultdict(int)
+
+    landline_valid_tracker = defaultdict(int)
+
+    primary_invalid_types_tracker = defaultdict(int)
+
+    secondary_invalid_types_tracker = defaultdict(int)
+
+    landline_invalid_types_tracker = defaultdict(int)
+
+
+
+    # Process in batches
+
+    for batch_num in range(0, num_records, batch_size):
+
+        current_batch_size = min(batch_size, num_records - batch_num)
+
+        print(f"Processing batch {batch_num//batch_size + 1}/{(num_records + batch_size - 1)//batch_size} "
+
+              f"({current_batch_size} records)...")
+
+
+
+        # Get customer IDs for this batch
+
+        batch_customer_ids = customer_ids[batch_num:batch_num + current_batch_size]
+
+
+
+        batch_data, primary_invalid_types, secondary_invalid_types, landline_invalid_types = generate_batch_data(current_batch_size, batch_customer_ids, current_date)
+
+        all_data.extend(batch_data)
+
+
+
+        # Track distributions
+
+        for record in batch_data:
+
+            age_group = f"{(record['Age'] // 10) * 10}s"
+
+            age_occupation_tracker[age_group][record['Occupation']] += 1
+
+            stress_tracker[record['Finance_Stress_Status']] += 1
+
+            savings_tracker["Negative" if record['Savings_to_Spend_Ratio'] < 0 else "Positive"] += 1
+
+            aar_risk_tracker[record['AAR_Risk_Level']] += 1
+
+
+
+            # Track last payment date distribution
+
+            last_payment_date = record['Last_Payment_Date']
+
+            days_ago = (current_date.date() - pd.to_datetime(last_payment_date).date()).days
+
+            if days_ago <= 90:
+
+                last_payment_tracker["0-3 months"] += 1
+
+            elif days_ago <= 240:
+
+                last_payment_tracker["3-8 months"] += 1
+
+            elif days_ago <= 365:
+
+                last_payment_tracker["8-12 months"] += 1
+
+            else:
+
+                last_payment_tracker["12+ months"] += 1
+
+
+
+            # Track days past due distribution
+
+            dpd = record['Day_Past_Due']
+
+            if dpd == 0:
+
+                days_past_due_tracker["0 days"] += 1
+
+            elif dpd <= 15:
+
+                days_past_due_tracker["1-15 days"] += 1
+
+            elif dpd <= 30:
+
+                days_past_due_tracker["16-30 days"] += 1
+
+            elif dpd <= 60:
+
+                days_past_due_tracker["31-60 days"] += 1
+
+            else:
+
+                days_past_due_tracker["61+ days"] += 1
+
+
+
+            missed_payments_tracker[record['Missed_Payments_Count']] += 1
+
+            successful_contacts_tracker[record['Successful_Contacts_Count']] += 1
+
+            secondary_mobile_tracker[record['Secondary_Mobile_Number']] += 1
+
+            region_tracker[record['Region']] += 1
+
+            area_tracker[record['Area']] += 1
+
+            pincode_tracker[record['Pincode']] += 1
+
+
+
+            # NEW: Track phone number validity
+
+            primary_valid_tracker["Valid" if record['Valid_Phone_Number'] else "Invalid"] += 1
+
+            secondary_valid_tracker["Valid" if record['Secondary_Mobile_Number_Valid'] else "Invalid"] += 1
+
+            landline_valid_tracker["Valid" if record['Landline_Phone_Number_Valid'] else "Invalid"] += 1
+
+
+
+        # Track invalid types across batches
+
+        for invalid_type, count in primary_invalid_types.items():
+
+            primary_invalid_types_tracker[invalid_type] += count
+
+        for invalid_type, count in secondary_invalid_types.items():
+
+            secondary_invalid_types_tracker[invalid_type] += count
+
+        for invalid_type, count in landline_invalid_types.items():
+
+            landline_invalid_types_tracker[invalid_type] += count
+
+
+
+        if (batch_num // batch_size) % 5 == 0:
+
+            gc.collect()
+
+
+
+    # Create DataFrame
+
+    df = pd.DataFrame(all_data)
+
+
+
+    # ENSURE INTEGER COLUMNS: Convert all count columns to integers
+
+    integer_columns = [
+
+        'No_of_Valid_Numbers', 'No_of_Invalid_Numbers', 'Mobile_Number_Change_Count',
+
+        'Mobile_Number_Change_Count_This_Year', 'Address_Change_Count', 'Address_Change_Count_This_Year',
+
+        'UPI_Transaction_Count', 'Debit_Card_Transaction_Count', 'Credit_Card_Transaction_Count',
+
+        'Cash_Withdrawal_Count', 'Recurring_Transaction_Count', 'High_Value_Transaction_Count',
+
+        'Successful_Contacts_Count', 'Customer_Best_Agent_Interaction_Count', 'Contact_History_Call_Attempts',
+
+        'Contact_History_SMS', 'Contact_History_WhatsApp', 'Contact_History_EmailLogs', 'No_of_Attempts',
+
+        'App_Login_Frequency', 'Online_Banking_Activity', 'Recent_Score_Change', 'Recent_Inquiries',
+
+        'Loan_Exposure_Across_Banks', 'Missed_Payments_Count', 'Number_of_Past_Payments', 'Tenure',
+
+        'Day_Past_Due', 'Age', 'Credit_Score'
+
+    ]
+
+
+
+    for col in integer_columns:
+
+        if col in df.columns:
+
+            df[col] = df[col].astype(int)
+
+
+
+    # VALIDATE AND FIX OUTSTANDING BALANCE ISSUES
+
+    df = validate_and_fix_outstanding_balance(df)
+
+
+
+    # Validate data
+
+    print("Validating data constraints...")
+
+    assert all(5000 <= amt <= 500000 for amt in df.Loan_Amount_SGD)
+
+    assert all(ob > 0 for ob in df.Outstanding_Balance_SGD)
+
+    assert all(tenure in [12,24,36,48,60] for tenure in df.Tenure)
+
+    assert all(8.0 <= rate <= 10.0 for rate in df.Interest_Rate)
+
+
+
+    # Check for missing values
+
+    print("\nChecking for missing values...")
+
+    missing_data = df.isnull().sum()
+
+    missing_columns = missing_data[missing_data > 0]
+
+    if len(missing_columns) == 0:
+
+        print("✓ No missing values found!")
+
+    else:
+
+        print("Missing values found:")
+
+        for col, count in missing_columns.items():
+
+            print(f"  {col}: {count} missing values")
+
+
+
+    # Check derived features consistency
+
+    print("\nChecking derived features consistency...")
+
+
+
+    # Check Spend_to_Income_Ratio consistency
+
+    calculated_ratio = df['Total_Monthly_Spend_SGD'] / df['Monthly_Income_SGD']
+
+    ratio_discrepancy = np.abs(df['Spend_to_Income_Ratio'] - calculated_ratio) > 0.01
+
+    discrepancy_count = ratio_discrepancy.sum()
+
+
+
+    if discrepancy_count == 0:
+
+        print("✓ Spend_to_Income_Ratio is consistent with calculated values")
+
+    else:
+
+        print(f"✗ Spend_to_Income_Ratio discrepancy: {discrepancy_count} records")
+
+        # Fix the discrepancies
+
+        df['Spend_to_Income_Ratio'] = calculated_ratio.round(2)
+
+        print("  Discrepancies fixed by recalculating ratios")
+
+
+
+    # Check total spend vs category spends
+
+    calculated_total = (df['Utility_Spend_SGD'] + df['Shopping_Spend_SGD'] + df['Entertainment_Spend_SGD'] +
+
+                       df['Health_Spend_SGD'] + df['Education_Spend_SGD'] + df['Travel_Spend_SGD'])
+
+    total_discrepancy = np.abs(df['Total_Monthly_Spend_SGD'] - calculated_total) > 10
+
+    total_discrepancy_count = total_discrepancy.sum()
+
+
+
+    if total_discrepancy_count == 0:
+
+        print("✓ Total_Monthly_Spend_SGD is consistent with category spends")
+
+    else:
+
+        print(f"✗ Total_Monthly_Spend_SGD discrepancy: {total_discrepancy_count} records")
+
+        # Fix the discrepancies
+
+        df['Total_Monthly_Spend_SGD'] = calculated_total.round(2)
+
+        print("  Discrepancies fixed by recalculating total spends")
+
+
+
+    # Format float columns
+
+    float_columns = df.select_dtypes(include=['float64']).columns
+
+    df[float_columns] = df[float_columns].round(2)
+
+
+
+    # Ensure AAR_Score has 6 decimal places
+
+    df['AAR_Score'] = df['AAR_Score'].apply(lambda x: round(float(x), 6))
+
+
+
+    # Save to CSV
+
+    output_file = 'singapore_loan_data.csv.gz'
+
+    print(f"Saving to {output_file}...")
+
+    df.to_csv(output_file, index=False, compression='gzip')
+
+
+
+    end_time = datetime.now()
+
+    duration = (end_time - start_time).total_seconds()
+
+
+
+    print(f"\n=== GENERATION COMPLETE ===")
+
+    print(f"Generated {len(df):,} customer records")
+
+    print(f"Time taken: {duration:.2f} seconds")
+
+    print(f"Records per second: {len(df)/duration:.0f}")
+
+    print(f"File saved: {output_file}")
+
+
+
+    # Enhanced reporting
+
+    print(f"\n=== DATA QUALITY REPORT ===")
+
+    print(f"Secondary Mobile Numbers: All {len(df):,} records have values")
+
+    print(f"Last Payment Dates: All {len(df):,} records have values")
+
+    print(f"Outstanding Balance: No violations found (all <= Loan Amount)")
+
+
+
+    # NEW: Phone number validity report
+
+    print(f"\n=== PHONE NUMBER VALIDITY REPORT ===")
+
+    print(f"Primary Mobile Numbers:")
+
+    for status, count in primary_valid_tracker.items():
+
+        percentage = (count / len(df)) * 100
+
+        print(f"  {status}: {count:,} records ({percentage:.1f}%)")
+
+
+
+    print(f"\nSecondary Mobile Numbers:")
+
+    for status, count in secondary_valid_tracker.items():
+
+        percentage = (count / len(df)) * 100
+
+        print(f"  {status}: {count:,} records ({percentage:.1f}%)")
+
+
+
+    print(f"\nLandline Numbers:")
+
+    for status, count in landline_valid_tracker.items():
+
+        percentage = (count / len(df)) * 100
+
+        print(f"  {status}: {count:,} records ({percentage:.1f}%)")
+
+
+
+    # Invalid number pattern analysis
+
+    print(f"\n=== INVALID NUMBER PATTERN ANALYSIS ===")
+
+    print(f"Primary Mobile Invalid Patterns:")
+
+    for pattern, count in primary_invalid_types_tracker.items():
+
+        print(f"  {pattern}: {count:,} records")
+
+
+
+    print(f"\nSecondary Mobile Invalid Patterns:")
+
+    for pattern, count in secondary_invalid_types_tracker.items():
+
+        print(f"  {pattern}: {count:,} records")
+
+
+
+    print(f"\nLandline Invalid Patterns:")
+
+    for pattern, count in landline_invalid_types_tracker.items():
+
+        print(f"  {pattern}: {count:,} records")
+
+
+
+    # Last Payment Date distribution report
+
+    print(f"\nLast Payment Date Distribution:")
+
+    for period, count in last_payment_tracker.items():
+
+        percentage = (count / len(df)) * 100
+
+        print(f"  {period}: {count:,} records ({percentage:.1f}%)")
+
+
+
+    # Days Past Due distribution report
+
+    print(f"\nDays Past Due Distribution:")
+
+    for period, count in days_past_due_tracker.items():
+
+        percentage = (count / len(df)) * 100
+
+        print(f"  {period}: {count:,} records ({percentage:.1f}%)")
+
+
+
+    # Region distribution report
+
+    print(f"\nRegion Distribution:")
+
+    for region, count in region_tracker.items():
+
+        percentage = (count / len(df)) * 100
+
+        print(f"  {region}: {count:,} records ({percentage:.1f}%)")
+
+
+
+    # Area distribution report (NEW)
+
+    print(f"\nTop 10 Area Distribution:")
+
+    top_areas = sorted(area_tracker.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    for area, count in top_areas:
+
+        percentage = (count / len(df)) * 100
+
+        print(f"  {area}: {count:,} records ({percentage:.1f}%)")
+
+
+
+    # Pincode distribution report (NEW)
+
+    print(f"\nTop 10 Pincode Distribution:")
+
+    top_pincodes = sorted(pincode_tracker.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    for pincode, count in top_pincodes:
+
+        percentage = (count / len(df)) * 100
+
+        print(f"  {pincode}: {count:,} records ({percentage:.1f}%)")
+
+
+
+    # Missed payments distribution report
+
+    missed_payments_stats = df['Missed_Payments_Count'].value_counts().sort_index()
+
+    print(f"\nMissed Payments Distribution:")
+
+    for count, freq in missed_payments_stats.head(10).items():  # Show top 10
+
+        percentage = (freq / len(df)) * 100
+
+        print(f"  {count} missed payments: {freq:,} records ({percentage:.1f}%)")
+
+
+
+    if len(missed_payments_stats) > 10:
+
+        others = missed_payments_stats[10:].sum()
+
+        others_percentage = (others / len(df)) * 100
+
+        print(f"  Others (11+): {others:,} records ({others_percentage:.1f}%)")
+
+
+
+    print(f"Spend_to_Income_Ratio consistency: {len(df) - discrepancy_count:,} consistent records")
+
+    print(f"Total_Monthly_Spend consistency: {len(df) - total_discrepancy_count:,} consistent records")
+
+
+
+    # NEW: Validate pincode-area consistency
+
+    print(f"\n=== PINCODE VALIDATION ===")
+
+    unique_area_pincode_pairs = df[['Area', 'Pincode']].drop_duplicates()
+
+    print(f"Unique Area-Pincode combinations: {len(unique_area_pincode_pairs)}")
+
+
+
+    # Check if areas have consistent pincodes
+
+    area_pincode_consistency = df.groupby('Area')['Pincode'].nunique()
+
+    inconsistent_areas = area_pincode_consistency[area_pincode_consistency > 1]
+
+    if len(inconsistent_areas) == 0:
+
+        print("✓ All areas have consistent pincodes")
+
+    else:
+
+        print(f"✗ {len(inconsistent_areas)} areas have inconsistent pincodes:")
+
+        for area in inconsistent_areas.index:
+
+            pincodes = df[df['Area'] == area]['Pincode'].unique()
+
+            print(f"  {area}: {', '.join(pincodes)}")
+
+
+
+if __name__ == "__main__":
+
+    main()

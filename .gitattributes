@@ -2,3 +2,4 @@ Prototype.zip filter=lfs diff=lfs merge=lfs -text
 Prototype/*.csv filter=lfs diff=lfs merge=lfs -text
 Model/*.csv filter=lfs diff=lfs merge=lfs -text
 Model/*.pkl filter=lfs diff=lfs merge=lfs -text
+Rebuild/*.csv filter=lfs diff=lfs merge=lfs -text
